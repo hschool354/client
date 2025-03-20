@@ -5,11 +5,16 @@ import Welcome from './components/pages/Welcome';
 import Login from './components/pages/Login';
 import Register from './components/pages/Register';
 import HomePage from './components/pages/HomePage';
+import { QueryClient, QueryClientProvider } from 'react-query';
 
 import './index.css';
 
+const queryClient = new QueryClient();
+
+
 function App() {
   return (
+    <QueryClientProvider client={queryClient}>
     <Router>
       <div className="w-full">
         <Routes>
@@ -21,6 +26,7 @@ function App() {
         </Routes>
       </div>
     </Router>
+    </QueryClientProvider>
   );
 }
 
