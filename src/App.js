@@ -5,7 +5,7 @@ import Welcome from './components/pages/Welcome';
 import Login from './components/pages/Login';
 import Register from './components/pages/Register';
 import HomePage from './components/pages/HomePage';
-import { QueryClient, QueryClientProvider } from 'react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import './index.css';
 

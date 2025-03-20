@@ -1,32 +1,18 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { usePageStore } from '../../stores/pageStore';
 import { Smile, Upload, Tag, Globe, Lock, Trash2 } from 'lucide-react';
 import { deletePage } from '../../services/pageService';
 
-const PageSettings = ({ onSave }) => {
-  const { 
-    page, 
-    pageTags, 
-    showEmojiPicker, 
-    setShowEmojiPicker, 
-    updatePageTitle, 
-    updatePageIcon, 
-    updatePageCover, 
-    togglePagePublic, 
-    addTag, 
-    removeTag, 
-    setNewTag, 
-    newTag 
-  } = usePageStore();
-
+const PageSettings = ({ page, onSave, updatePage, pageTags, setPageTags }) => {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [newTag, setNewTag] = useState('');
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   const handleDeletePage = async () => {
     try {
       await deletePage(page.id);
       setConfirmDelete(false);
-      window.location.href = '/'; // Quay lại trang chính sau khi xóa
+      window.location.href = '/';
     } catch (error) {
       console.error("Failed to delete page:", error);
     }
@@ -36,21 +22,33 @@ const PageSettings = ({ onSave }) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (event) => updatePageCover(event.target.result);
+      reader.onload = (event) => updatePage({ coverUrl: event.target.result });
       reader.readAsDataURL(file);
     }
   };
 
   const handleEmojiSelect = (emoji) => {
-    updatePageIcon(emoji);
+    updatePage({ icon: emoji });
     setShowEmojiPicker(false);
   };
 
   const handleTagKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      addTag();
+    if (e.key === 'Enter' && newTag.trim() && !pageTags.includes(newTag.trim())) {
+      setPageTags([...pageTags, newTag.trim()]);
+      setNewTag('');
       e.preventDefault();
     }
+  };
+
+  const handleAddTag = () => {
+    if (newTag.trim() && !pageTags.includes(newTag.trim())) {
+      setPageTags([...pageTags, newTag.trim()]);
+      setNewTag('');
+    }
+  };
+
+  const handleRemoveTag = (tag) => {
+    setPageTags(pageTags.filter(t => t !== tag));
   };
 
   const emojis = ['📄', '📝', '📌', '📊', '📈', '📉', '📋', '✏️', '📁', '🗂️', '📚', '💼', '🖥️', '📱', '🤖', '🔍', '💡', '⚙️'];
@@ -69,7 +67,7 @@ const PageSettings = ({ onSave }) => {
               type="text"
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-gray-100"
               value={page.title}
-              onChange={(e) => updatePageTitle(e.target.value)}
+              onChange={(e) => updatePage({ title: e.target.value })}
               placeholder="Untitled"
             />
           </div>
@@ -119,7 +117,7 @@ const PageSettings = ({ onSave }) => {
               {pageTags.map(tag => (
                 <div key={tag} className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-md text-sm flex items-center">
                   <span className="mr-1">{tag}</span>
-                  <button className="text-gray-500 hover:text-red-500" onClick={() => removeTag(tag)}>×</button>
+                  <button className="text-gray-500 hover:text-red-500" onClick={() => handleRemoveTag(tag)}>×</button>
                 </div>
               ))}
             </div>
@@ -132,7 +130,7 @@ const PageSettings = ({ onSave }) => {
                 onKeyDown={handleTagKeyDown}
                 placeholder="Add a tag"
               />
-              <button className="px-3 py-2 bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-r-md hover:bg-gray-200 dark:hover:bg-gray-500" onClick={() => addTag()}>
+              <button className="px-3 py-2 bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-r-md hover:bg-gray-200 dark:hover:bg-gray-500" onClick={handleAddTag}>
                 <Tag size={16} />
               </button>
             </div>
@@ -141,7 +139,7 @@ const PageSettings = ({ onSave }) => {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Visibility</label>
             <button
               className={`flex items-center px-4 py-2 rounded-md text-sm ${page.isPublic ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`}
-              onClick={togglePagePublic}
+              onClick={() => updatePage({ isPublic: !page.isPublic })}
             >
               {page.isPublic ? (
                 <>

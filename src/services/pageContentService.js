@@ -12,8 +12,10 @@ import api from "./api";
 export const getPageContent = async (pageId) => {
   try {
     const response = await api.get(`/pages/${pageId}/content`);
+    console.log('Raw response from getPageContent:', response.data);
     return response.data;
   } catch (error) {
+    console.error('Error fetching page content:', error);
     console.error("Lỗi khi lấy nội dung trang:", error);
     throw error;
   }

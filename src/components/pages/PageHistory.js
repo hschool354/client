@@ -1,27 +1,23 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { usePageStore } from '../../stores/pageStore';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Clock, Eye, User } from 'lucide-react';
+import { Clock, Eye } from 'lucide-react';
 import { getPageHistory, restorePageVersion } from '../../services/pageContentService';
 
-const PageHistory = () => {
-  const { page, setBlocks } = usePageStore();
-
-  const { data, isLoading, error } = useQuery(
-    ['pageHistory', page.id],
-    () => getPageHistory(page.id),
-    {
-      enabled: !!page.id,
-      onError: (error) => console.error("Failed to load history:", error),
-    }
-  );
+const PageHistory = ({ page, setBlocks, onRestore }) => { // Nhận props từ PageComponent
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['pageHistory', page.id],
+    queryFn: () => getPageHistory(page.id),
+    enabled: !!page.id,
+    onError: (error) => console.error("Failed to load history:", error),
+  });
 
   const handleRestore = async (version) => {
     try {
       const restoredData = await restorePageVersion(page.id, version);
-      setBlocks(restoredData.blocks); // Cập nhật blocks từ phiên bản khôi phục
+      setBlocks(restoredData.blocks); // Cập nhật blocks cục bộ
+      onRestore(version); // Gọi callback từ PageComponent
     } catch (error) {
       console.error("Failed to restore version:", error);
     }
@@ -30,9 +26,8 @@ const PageHistory = () => {
   if (isLoading) return <div>Loading history...</div>;
   if (error) return <div className="text-red-500">Error loading history: {error.message}</div>;
 
-  // Xử lý dữ liệu history an toàn
   const history = Array.isArray(data) ? data : (data?.history || []);
-  
+
   if (!history.length) {
     return (
       <motion.div
@@ -61,7 +56,7 @@ const PageHistory = () => {
         <ul className="divide-y divide-gray-200 dark:divide-gray-700">
           {history.map((version, index) => (
             <li
-              key={version.id || index} // Đảm bảo key duy nhất, dùng index nếu version.id không tồn tại
+              key={version.id || index}
               className="p-4 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors duration-200"
             >
               <div className="flex items-center justify-between">
@@ -74,7 +69,6 @@ const PageHistory = () => {
                       Version {history.length - index}
                     </p>
                     <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      <User size={12} className="mr-1" />
                       <span className="mr-2">{version.editorName || 'Unknown'}</span>
                       <span>{version.date ? format(new Date(version.date), 'MMM d, yyyy h:mm a') : 'N/A'}</span>
                     </div>

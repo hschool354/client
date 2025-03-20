@@ -57,13 +57,10 @@ const HomeContent = () => {
     try {
       setIsLoading(true);
       const workspacesData = await workspaceService.getWorkspaces();
+      console.log('Workspaces data:', workspacesData); // Debug
       setWorkspaces(workspacesData);
-      
-      // Select the first workspace if available
       if (workspacesData.length > 0) {
         setSelectedWorkspace(workspacesData[0]);
-        
-        // If the workspace has pages, select the first one
         if (workspacesData[0].pages && workspacesData[0].pages.length > 0) {
           setSelectedPage(workspacesData[0].pages[0]);
         }
@@ -79,6 +76,16 @@ const HomeContent = () => {
       setIsLoading(false);
     }
   };
+  
+  const handleWorkspaceSelect = (workspace) => {
+    console.log('Selected workspace:', workspace); // Debug
+    setSelectedWorkspace(workspace);
+    if (workspace && workspace.pages && workspace.pages.length > 0) {
+      setSelectedPage(workspace.pages[0]);
+    } else {
+      setSelectedPage(null);
+    }
+  };
 
   // Handle main navigation clicks from sidebar
   const handleNavClick = (tab) => {
@@ -86,15 +93,6 @@ const HomeContent = () => {
     setCurrentView(tab);
   };
 
-  // Handle workspace selection
-  const handleWorkspaceSelect = (workspace) => {
-    setSelectedWorkspace(workspace);
-    if (workspace.pages && workspace.pages.length > 0) {
-      setSelectedPage(workspace.pages[0]); // Chọn page đầu tiên khi đổi workspace
-    } else {
-      setSelectedPage(null);
-    }
-  };
 
   // Handle page selection
   const handlePageSelect = (page) => {
@@ -120,16 +118,28 @@ const HomeContent = () => {
     if (isLoading) {
       return renderLoadingIndicator();
     }
-
+  
     switch (currentView) {
       case 'people':
+        if (!selectedWorkspace) {
+          return (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center p-6">
+                <h2 className="text-2xl font-bold mb-4">No workspace selected</h2>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Please select a workspace from the sidebar to manage collaborators.
+                </p>
+              </div>
+            </div>
+          );
+        }
         return <CollabPage user={user} workspace={selectedWorkspace} />;
       case 'computer':
       default:
         return selectedPage ? (
           <PageComponent 
             workspaceId={selectedWorkspace?.id} 
-            initialPage={selectedPage} // Truyền selectedPage vào PageComponent
+            initialPage={selectedPage}
           />
         ) : (
           <div className="flex items-center justify-center h-full">

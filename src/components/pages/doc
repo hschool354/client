@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { usePageStore } from '../../stores/pageStore';
 import { useTheme } from 'next-themes';
 
 // Components
@@ -23,27 +24,24 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
   const queryClient = useQueryClient();
   const { theme } = useTheme();
 
-  // State cục bộ
-  const [page, setPage] = useState({
-    id: initialPage?.id || '',
-    title: initialPage?.title || 'Untitled',
-    icon: initialPage?.icon || '📄',
-    coverUrl: initialPage?.coverUrl || '',
-    isPublic: initialPage?.isPublic || false,
-  });
-  const [blocks, setBlocks] = useState([]);
-  const [saving, setSaving] = useState(false);
-  const [notification, setNotification] = useState(null);
-  const [selectedTab, setSelectedTab] = useState('content');
-  const [isStarred, setIsStarred] = useState(false);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [pageTags, setPageTags] = useState([]);
+  // State cục bộ cho blocks
+  const [blocks, setBlocksLocal] = useState([]);
 
-  // Hàm cập nhật page
-  const updatePage = (updates) => setPage((prev) => ({ ...prev, ...updates }));
+  // Các giá trị khác từ store
+  const page = usePageStore((state) => state.page);
+  const saving = usePageStore((state) => state.saving);
+  const notification = usePageStore((state) => state.notification);
+  const selectedTab = usePageStore((state) => state.selectedTab);
+  const isStarred = usePageStore((state) => state.isStarred);
+
+  const setPage = usePageStore((state) => state.setPage);
+  const setSaving = usePageStore((state) => state.setSaving);
+  const setNotification = usePageStore((state) => state.setNotification);
+  const setSelectedTab = usePageStore((state) => state.setSelectedTab);
+  const toggleStar = usePageStore((state) => state.toggleStar);
 
   // Fetch page data using React Query
-  const { isLoading, data, error, refetch } = useQuery({
+  const { isLoading, refetch } = useQuery({
     queryKey: ['pageContent', initialPage?.id],
     queryFn: () => {
       if (!initialPage?.id) {
@@ -52,34 +50,25 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
       return getPageContent(initialPage.id);
     },
     enabled: !!initialPage?.id,
-  });
-
-  // Đồng bộ page và blocks khi initialPage thay đổi
-  useEffect(() => {
-    console.log('Initial page changed:', initialPage);
-    if (initialPage) {
-      setPage({
-        id: initialPage.id,
-        title: initialPage.title || 'Untitled',
-        icon: initialPage.icon || '📄',
-        coverUrl: initialPage.coverUrl || '',
-        isPublic: initialPage.isPublic || false,
-      });
-      setBlocks([]);
-      setIsStarred(false);
-      setPageTags([]);
-      setSelectedTab('content');
-    }
-  }, [initialPage]);
-
-  // Xử lý dữ liệu khi fetch thành công
-  useEffect(() => {
-    if (data) {
+    onSuccess: (data) => {
       console.log('Page content fetched:', data);
-      console.log('Raw blocks from server:', data.blocks); // Kiểm tra dữ liệu thực tế
+      if (!data) {
+        console.error('No data received from getPageContent');
+        setNotification({
+          type: 'error',
+          message: 'No page content received',
+        });
+        setBlocksLocal([]);
+        return;
+      }
+
+      console.log('Raw blocks from server:', data.blocks);
       const blocksData = Array.isArray(data.blocks)
         ? data.blocks.map((block, index) => {
             console.log('Processing block:', block);
+            if (typeof block === 'string') {
+              return { id: block, content: '', type: 'text', position: index };
+            }
             const blockData = {
               id: block._id || block.id || `temp-${index}`,
               content: block.content || '',
@@ -90,34 +79,33 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
             return blockData;
           })
         : [];
+
       console.log('Blocks data prepared:', blocksData);
-      setBlocks(blocksData);
-      console.log('Blocks after setBlocks:', blocksData);
-
-      // Đồng bộ thông tin page từ server nếu có
-      if (data.page) {
-        setPage((prev) => ({
-          ...prev,
-          title: data.page.title || prev.title,
-          icon: data.page.icon || prev.icon,
-          coverUrl: data.page.coverUrl || prev.coverUrl,
-          isPublic: data.page.isPublic ?? prev.isPublic,
-        }));
-      }
-    }
-  }, [data]);
-
-  // Xử lý lỗi
-  useEffect(() => {
-    if (error) {
+      setBlocksLocal(blocksData);
+      console.log('Blocks after setBlocksLocal:', blocksData);
+    },
+    onError: (error) => {
       console.error('Failed to fetch page content:', error);
       setNotification({
         type: 'error',
         message: `Failed to load page content: ${error.message}`,
       });
-      setBlocks([]);
+      setBlocksLocal([]);
+    },
+  });
+
+  useEffect(() => {
+    if (initialPage && !page?.id) {
+      console.log('Initializing page with:', initialPage);
+      setPage({
+        id: initialPage.id,
+        title: initialPage.title || 'Untitled',
+        icon: initialPage.icon || '📄',
+        coverUrl: initialPage.coverUrl || '',
+        isPublic: initialPage.isPublic || false,
+      });
     }
-  }, [error]);
+  }, [initialPage, setPage]);
 
   const handleSave = () => {
     saveMutation.mutate({ pageData: page, blocks });
@@ -153,12 +141,10 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
         throw new Error('Invalid data after restore');
       }
       const newBlocks = result.data.blocks.map((block, index) => ({
+        ...block,
         id: block._id || block.id || `temp-${index}`,
-        content: block.content || '',
-        type: block.type || 'text',
-        position: block.position ?? index,
       }));
-      setBlocks(newBlocks);
+      setBlocksLocal(newBlocks);
       console.log('Blocks after restore:', newBlocks);
       setNotification({
         type: 'success',
@@ -173,45 +159,32 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
     }
   };
 
-  const toggleStar = () => setIsStarred((prev) => !prev);
-
   const renderTabContent = () => {
     switch (selectedTab) {
       case 'content':
-        return <PageContent page={page} blocks={blocks} setBlocks={setBlocks} />;
+        return <PageContent />;
       case 'history':
-        return <PageHistory page={page} setBlocks={setBlocks} onRestore={handleRestore} />;
+        return <PageHistory onRestore={handleRestore} />;
       case 'settings':
-        return (
-          <PageSettings
-            page={page}
-            onSave={handleSave}
-            updatePage={updatePage}
-            pageTags={pageTags}
-            setPageTags={setPageTags}
-          />
-        );
+        return <PageSettings onSave={handleSave} />;
       default:
         return null;
     }
   };
 
-  console.log('Rendering with states:', { isLoading, page, blocks });
+  console.log('Rendering with states:', { isLoading, blocks });
 
-  if (isLoading || !initialPage?.id) {
+  if (isLoading) {
     return <LoadingSpinner />;
   }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
       <PageHeader
-        page={page}
-        updatePage={updatePage}
         onSave={handleSave}
         saving={saving}
         isStarred={isStarred}
         toggleStar={toggleStar}
-        setShowEmojiPicker={setShowEmojiPicker}
       />
       <AnimatePresence>
         {notification && (
@@ -251,7 +224,7 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
         </motion.div>
         <div className="mt-6">{renderTabContent()}</div>
       </main>
-      <BottomToolbar page={page} blocks={blocks} setBlocks={setBlocks} />
+      <BottomToolbar />
     </div>
   );
 };

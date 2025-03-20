@@ -1,23 +1,21 @@
 import React from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { usePageStore } from '../../stores/pageStore';
 import { format } from 'date-fns';
 import { Plus, Trash2, Tag } from 'lucide-react';
 import { createBlock, updateBlock, deleteBlock } from '../../services/blockService';
 
 // Block components
-const TextBlock = React.memo(({ block, onFocus, onBlur, onDelete }) => {
-  const { updateBlock: updateStoreBlock } = usePageStore();
-
+const TextBlock = React.memo(({ block, onFocus, onBlur, onDelete, onUpdate }) => {
   const handleUpdate = async (e) => {
     const newContent = e.target.value;
-    if (!block._id) {
-      console.error("Block _id is undefined:", block);
+    if (!block.id) {
+      console.error("Block id is undefined:", block);
       return;
     }
-    updateStoreBlock(block._id, { content: newContent });
+    onUpdate(block.id, { content: newContent });
     try {
-      await updateBlock(block._id, { content: newContent });
+      await updateBlock(block.id, { content: newContent });
     } catch (error) {
       console.error("Failed to update block:", error);
     }
@@ -34,7 +32,7 @@ const TextBlock = React.memo(({ block, onFocus, onBlur, onDelete }) => {
         </button>
       </div>
       <textarea
-        data-block-id={block._id}
+        data-block-id={block.id}
         className="w-full p-2 border-0 focus:outline-none focus:ring-0 resize-none bg-transparent text-gray-900 dark:text-gray-100"
         value={block.content || ''}
         onChange={handleUpdate}
@@ -48,18 +46,16 @@ const TextBlock = React.memo(({ block, onFocus, onBlur, onDelete }) => {
   );
 });
 
-const HeadingBlock = React.memo(({ block, onFocus, onBlur, onDelete }) => {
-  const { updateBlock: updateStoreBlock } = usePageStore();
-
+const HeadingBlock = React.memo(({ block, onFocus, onBlur, onDelete, onUpdate }) => {
   const handleUpdate = async (e) => {
     const newContent = e.target.value;
-    if (!block._id) {
-      console.error("Block _id is undefined:", block);
+    if (!block.id) {
+      console.error("Block id is undefined:", block);
       return;
     }
-    updateStoreBlock(block._id, { content: newContent });
+    onUpdate(block.id, { content: newContent });
     try {
-      await updateBlock(block._id, { content: newContent });
+      await updateBlock(block.id, { content: newContent });
     } catch (error) {
       console.error("Failed to update block:", error);
     }
@@ -76,7 +72,7 @@ const HeadingBlock = React.memo(({ block, onFocus, onBlur, onDelete }) => {
         </button>
       </div>
       <textarea
-        data-block-id={block._id}
+        data-block-id={block.id}
         className="w-full p-2 border-0 focus:outline-none focus:ring-0 resize-none bg-transparent text-2xl font-bold text-gray-900 dark:text-gray-100"
         value={block.content || ''}
         onChange={handleUpdate}
@@ -90,18 +86,16 @@ const HeadingBlock = React.memo(({ block, onFocus, onBlur, onDelete }) => {
   );
 });
 
-const BulletListBlock = React.memo(({ block, onFocus, onBlur, onDelete }) => {
-  const { updateBlock: updateStoreBlock } = usePageStore();
-
+const BulletListBlock = React.memo(({ block, onFocus, onBlur, onDelete, onUpdate }) => {
   const handleUpdate = async (e) => {
     const newContent = e.target.value;
-    if (!block._id) {
-      console.error("Block _id is undefined:", block);
+    if (!block.id) {
+      console.error("Block id is undefined:", block);
       return;
     }
-    updateStoreBlock(block._id, { content: newContent });
+    onUpdate(block.id, { content: newContent });
     try {
-      await updateBlock(block._id, { content: newContent });
+      await updateBlock(block.id, { content: newContent });
     } catch (error) {
       console.error("Failed to update block:", error);
     }
@@ -120,7 +114,7 @@ const BulletListBlock = React.memo(({ block, onFocus, onBlur, onDelete }) => {
       <div className="flex">
         <div className="mt-3 mr-2">•</div>
         <textarea
-          data-block-id={block._id}
+          data-block-id={block.id}
           className="w-full p-2 border-0 focus:outline-none focus:ring-0 resize-none bg-transparent text-gray-900 dark:text-gray-100"
           value={block.content || ''}
           onChange={handleUpdate}
@@ -151,58 +145,57 @@ const DividerBlock = React.memo(({ block, onDelete }) => {
   );
 });
 
-const PageContent = () => {
-  const { 
-    page, 
-    blocks, 
-    pageTags, 
-    focusedBlockId, 
-    showTagsInput, 
-    newTag,
-    addBlock: addStoreBlock, 
-    deleteBlock: deleteStoreBlock, 
-    setFocusedBlockId, 
-    setShowTagsInput, 
-    setNewTag,
-    addTag,
-    removeTag
-  } = usePageStore();
+const PageContent = ({ page, blocks, setBlocks }) => {
+  const [focusedBlockId, setFocusedBlockId] = useState(null);
+  const [showTagsInput, setShowTagsInput] = useState(false);
+  const [pageTags, setPageTags] = useState([]);
+  const [newTag, setNewTag] = useState('');
 
   const renderBlock = (block) => {
-    if (!block || !block._id) {
+    if (!block || !block.id) {
       console.error("Invalid block:", block);
       return null;
     }
-
     const blockProps = {
       block,
-      onFocus: () => setFocusedBlockId(block._id),
+      onFocus: () => setFocusedBlockId(block.id),
       onBlur: () => setFocusedBlockId(null),
       onDelete: async () => {
         try {
-          await deleteBlock(block._id);
-          deleteStoreBlock(block._id);
+          await deleteBlock(block.id);
+          setBlocks((prev) => {
+            const index = prev.findIndex(b => b.id === block.id);
+            return [
+              ...prev.slice(0, index),
+              ...prev.slice(index + 1).map(b => ({ ...b, position: b.position - 1 })),
+            ];
+          });
         } catch (error) {
           console.error("Failed to delete block:", error);
         }
+      },
+      onUpdate: (id, updates) => {
+        setBlocks((prev) =>
+          prev.map(b => (b.id === id ? { ...b, ...updates } : b))
+        );
       },
     };
 
     switch (block.type) {
       case 'text':
-      case 'paragraph': // Thêm hỗ trợ cho type 'paragraph'
-        return <TextBlock key={block._id} {...blockProps} />;
+      case 'paragraph':
+        return <TextBlock key={block.id} {...blockProps} />;
       case 'heading':
       case 'heading_1':
-        return <HeadingBlock key={block._id} {...blockProps} />;
+        return <HeadingBlock key={block.id} {...blockProps} />;
       case 'bullet':
       case 'bulleted_list':
-        return <BulletListBlock key={block._id} {...blockProps} />;
+        return <BulletListBlock key={block.id} {...blockProps} />;
       case 'divider':
-        return <DividerBlock key={block._id} {...blockProps} />;
+        return <DividerBlock key={block.id} {...blockProps} />;
       default:
         console.warn(`Unknown block type: ${block.type}, rendering as text`);
-        return <TextBlock key={block._id} {...blockProps} />;
+        return <TextBlock key={block.id} {...blockProps} />;
     }
   };
 
@@ -215,7 +208,8 @@ const PageContent = () => {
         content: '',
         position: lastBlockIndex + 1,
       });
-      addStoreBlock(newBlock.type, lastBlockIndex); // Cập nhật store
+      const blockWithId = { ...newBlock, id: newBlock._id };
+      setBlocks((prev) => [...prev, blockWithId]);
       setTimeout(() => {
         const textarea = document.querySelector(`textarea[data-block-id="${newBlock._id}"]`);
         if (textarea) textarea.focus();
@@ -226,10 +220,15 @@ const PageContent = () => {
   };
 
   const handleAddTag = (e) => {
-    if (e.key === 'Enter') {
-      addTag();
+    if (e.key === 'Enter' && newTag.trim() && !pageTags.includes(newTag.trim())) {
+      setPageTags((prev) => [...prev, newTag.trim()]);
+      setNewTag('');
       e.preventDefault();
     }
+  };
+
+  const handleRemoveTag = (tag) => {
+    setPageTags((prev) => prev.filter(t => t !== tag));
   };
 
   const currentDate = format(new Date(), 'MMMM d, yyyy');
@@ -252,7 +251,7 @@ const PageContent = () => {
           {pageTags.map(tag => (
             <div key={tag} className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-md text-sm flex items-center">
               <span className="mr-1">{tag}</span>
-              <button className="text-gray-500 hover:text-red-500" onClick={() => removeTag(tag)}>×</button>
+              <button className="text-gray-500 hover:text-red-500" onClick={() => handleRemoveTag(tag)}>×</button>
             </div>
           ))}
           {showTagsInput ? (
@@ -268,7 +267,13 @@ const PageContent = () => {
               />
               <button
                 className="ml-1 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                onClick={() => { addTag(); setShowTagsInput(false); }}
+                onClick={() => {
+                  if (newTag.trim() && !pageTags.includes(newTag.trim())) {
+                    setPageTags((prev) => [...prev, newTag.trim()]);
+                    setNewTag('');
+                  }
+                  setShowTagsInput(false);
+                }}
               >
                 Add
               </button>
