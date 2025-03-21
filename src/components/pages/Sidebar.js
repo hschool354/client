@@ -16,6 +16,8 @@ import {
   Moon,
   Sun,
   Search,
+  Copy,
+  Star,
 } from "lucide-react";
 
 import workspaceService from "../../services/workspaceService";
@@ -26,7 +28,9 @@ import {
   updatePage,
   addToFavorites,
   removeFromFavorites,
+  duplicatePage,
 } from "../../services/pageService";
+import favoritesService from "../../services/favoritesService";
 
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -66,6 +70,7 @@ const Sidebar = ({
   const [newPageTitle, setNewPageTitle] = useState("");
   const [isExpanded] = useState(true); // Sidebar chính luôn mở
   const [activePages, setActivePages] = useState([]);
+  const [favoritePages, setFavoritePages] = useState([]);
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
   const [showWorkspaceSelector, setShowWorkspaceSelector] = useState(false);
   const [newWorkspaceName, setNewWorkspaceName] = useState("");
@@ -80,6 +85,7 @@ const Sidebar = ({
 
   useEffect(() => {
     fetchWorkspaces();
+    fetchFavorites();
   }, []);
 
   useEffect(() => {
@@ -150,6 +156,17 @@ const Sidebar = ({
       setActivePages([]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchFavorites = async () => {
+    try {
+      const favorites = await favoritesService.getFavorites();
+      setFavoritePages(favorites);
+      console.log("Favorite pages:", favorites);
+    } catch (error) {
+      console.error("Error fetching favorites:", error);
+      setFavoritePages([]);
     }
   };
 
@@ -300,6 +317,40 @@ const Sidebar = ({
       navigate(`/workspace/${selectedWorkspace.id}`);
     } catch (error) {
       console.error("Error deleting page:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDuplicatePage = async (pageId, event) => {
+    event.stopPropagation(); // Ngăn sự kiện click lan ra ngoài
+
+    if (!pageId || !selectedWorkspace) return;
+
+    try {
+      setIsLoading(true);
+      const duplicatedPage = await duplicatePage(pageId); // Gọi API nhân bản trang
+      console.log("Duplicated page:", duplicatedPage);
+
+      // Cập nhật danh sách trang
+      await fetchWorkspacePages(selectedWorkspace.id);
+
+      // Điều hướng đến trang vừa nhân bản
+      onPageSelect(duplicatedPage);
+      navigate(`/workspace/${selectedWorkspace.id}/page/${duplicatedPage.id}`);
+
+      toast({
+        title: "Success",
+        description: `Page "${duplicatedPage.title}" duplicated!`,
+        variant: "success",
+      });
+    } catch (error) {
+      console.error("Error duplicating page:", error);
+      toast({
+        title: "Error",
+        description: "Failed to duplicate page. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -484,6 +535,59 @@ const Sidebar = ({
             </div>
 
             <div className="flex-1 relative z-10">
+              {/* Favorites Section */}
+              <div className="px-4 pt-4 flex items-center justify-between">
+                <Badge
+                  variant="outline"
+                  className="text-xs font-medium text-yellow-500 tracking-wider border-yellow-200"
+                >
+                  FAVORITES
+                </Badge>
+              </div>
+              <ScrollArea className="h-[20vh] px-4 py-2">
+                {favoritePages.length > 0 ? (
+                  <ul className="space-y-1">
+                    {favoritePages.map((page) => (
+                      <motion.li
+                        key={page.pageId}
+                        className="group"
+                        whileHover={{ x: 2 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 300,
+                          damping: 30,
+                        }}
+                      >
+                        <div
+                          className="flex items-center w-full px-2 py-2 rounded-lg hover:bg-yellow-100/70 text-left cursor-pointer"
+                          onClick={() =>
+                            onPageSelect({ id: page.pageId, title: page.title })
+                          }
+                        >
+                          <Star
+                            size={16}
+                            className="text-yellow-400 group-hover:text-yellow-600 transition-colors min-w-4"
+                          />
+                          <span className="ml-2 text-sm truncate text-gray-700 group-hover:text-yellow-800 transition-colors flex-1">
+                            {page.title}
+                          </span>
+                        </div>
+                      </motion.li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-4">
+                    <div className="text-yellow-300 mb-2">
+                      <Star size={24} />
+                    </div>
+                    <p className="text-xs text-yellow-400">
+                      No favorite pages yet
+                    </p>
+                  </div>
+                )}
+              </ScrollArea>
+              <Separator className="my-2 bg-blue-100" />{" "}
+              {/* Thêm đường phân cách */}
               <div className="px-4 pt-4 flex items-center justify-between">
                 <Badge
                   variant="outline"
@@ -502,7 +606,6 @@ const Sidebar = ({
                   <Plus size={14} />
                 </MotionButton>
               </div>
-
               <ScrollArea className="h-[calc(100vh-160px)] px-4 py-2">
                 {selectedWorkspace ? (
                   <ul className="space-y-1">
@@ -563,6 +666,26 @@ const Sidebar = ({
                                     className="bg-white text-blue-800 border-blue-100"
                                   >
                                     <p className="text-xs">Edit</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="p-1 rounded-md hover:bg-blue-200/80 text-blue-400 hover:text-blue-600"
+                                      onClick={(e) =>
+                                        handleDuplicatePage(page.id, e)
+                                      } // Thêm nút Duplicate
+                                    >
+                                      <Copy size={14} />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent
+                                    side="bottom"
+                                    className="bg-white text-blue-800 border-blue-100"
+                                  >
+                                    <p className="text-xs">Duplicate</p>
                                   </TooltipContent>
                                 </Tooltip>
                                 <Tooltip>

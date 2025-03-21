@@ -33,18 +33,19 @@ const CollabPage = ({ workspace, user }) => {
       const userInvitationsResponse = await getUserInvitations();
       const userInvitationsData = userInvitationsResponse.data || [];
       setUserInvitations(userInvitationsData);
-
+  
       const workspaceInvitations = userInvitationsData.filter(
         (invite) => invite.workspaceId === workspaceId
       );
       setInvitations(workspaceInvitations);
-
+  
       const workspaceMembersResponse = await workspaceService.getWorkspaceMembers(workspaceId);
       const workspaceMembers = workspaceMembersResponse.data || [];
       setCollaborators(workspaceMembers);
     } catch (error) {
       console.error('Error in fetchWorkspaceData:', error);
-      showNotification(`Error loading workspace data: ${error.message}`, 'error');
+      const errorMessage = error.message || 'Unknown error occurred';
+      showNotification(`Error loading workspace data: ${errorMessage}`, 'error');
       setCollaborators([]);
     } finally {
       setIsLoading(false);
@@ -54,6 +55,7 @@ const CollabPage = ({ workspace, user }) => {
   const fetchUserInvitations = async () => {
     try {
       const response = await getUserInvitations();
+      console.log('User Invitations from API:', response.data);
       setUserInvitations(response.data || []);
     } catch (error) {
       console.error('Error fetching user invitations:', error);
@@ -63,9 +65,9 @@ const CollabPage = ({ workspace, user }) => {
   const handleAcceptInvitation = async (invitationId) => {
     setIsLoading(true);
     try {
-      await acceptInvitation(invitationId);
+      await acceptInvitation(invitationId); // Đây là id, không phải invitationId
       showNotification('Invitation accepted successfully');
-      setUserInvitations(userInvitations.filter((inv) => inv.invitationId !== invitationId));
+      setUserInvitations(userInvitations.filter((inv) => inv.id !== invitationId)); // Sửa ở đây
       if (workspace && workspace.id) {
         fetchWorkspaceData(workspace.id);
       }
@@ -79,9 +81,9 @@ const CollabPage = ({ workspace, user }) => {
   const handleDeclineInvitation = async (invitationId) => {
     setIsLoading(true);
     try {
-      await declineInvitation(invitationId);
+      await declineInvitation(invitationId); // Đây là id, không phải invitationId
       showNotification('Invitation declined successfully');
-      setUserInvitations(userInvitations.filter((inv) => inv.invitationId !== invitationId));
+      setUserInvitations(userInvitations.filter((inv) => inv.id !== invitationId)); // Sửa ở đây
     } catch (error) {
       showNotification(`Failed to decline invitation: ${error.message}`, 'error');
     } finally {
@@ -203,7 +205,7 @@ const CollabPage = ({ workspace, user }) => {
                       className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      onClick={() => handleAcceptInvitation(invite.invitationId)}
+                      onClick={() => handleAcceptInvitation(invite.id)}
                     >
                       <Check size={16} className="inline mr-1" /> Accept
                     </motion.button>
@@ -211,7 +213,7 @@ const CollabPage = ({ workspace, user }) => {
                       className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      onClick={() => handleDeclineInvitation(invite.invitationId)}
+                      onClick={() => handleDeclineInvitation(invite.id)}
                     >
                       <X size={16} className="inline mr-1" /> Decline
                     </motion.button>

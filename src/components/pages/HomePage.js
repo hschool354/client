@@ -7,6 +7,7 @@ import { ToastProvider } from "../ui/toast";
 import Sidebar from './Sidebar';
 import PageComponent from './PageComponent';
 import CollabPage from './CollabPage';
+import PlanetPage from './PlanetPage';
 
 const HomeContent = () => {
   const navigate = useNavigate();
@@ -21,26 +22,56 @@ const HomeContent = () => {
 
   // Check authentication và load dữ liệu
   useEffect(() => {
-    const checkAuth = async () => {
+    const initializeApp = async () => {
       try {
-        console.log('Starting authentication check');
+        console.log('Starting initialization');
+        setIsLoading(true);
+  
+        // Kiểm tra auth
         const currentUser = await authService.getCurrentUser();
-        console.log('Current user:', currentUser);
-        
         if (!currentUser) {
-          console.log('No user found, redirecting to login');
           navigate('/login');
           return;
         }
-        
         setUser(currentUser);
-        console.log('User set, fetching workspaces');
-        await fetchWorkspaces();
+  
+        // Fetch workspaces
+        const response = await workspaceService.getWorkspaces();
+        console.log('Raw response:', response);
+        let workspacesData = Array.isArray(response) ? response : response.data || [];
+        if (!Array.isArray(workspacesData)) {
+          console.error('Expected an array, got:', workspacesData);
+          workspacesData = [];
+        }
+        setWorkspaces(workspacesData);
+  
+        // Đồng bộ với URL
+        if (workspacesData.length > 0) {
+          let workspaceToSelect = workspaceId
+            ? workspacesData.find(w => w.id === workspaceId) || workspacesData[0]
+            : workspacesData[0];
+  
+          if (workspaceToSelect) {
+            setSelectedWorkspace(workspaceToSelect);
+            if (workspaceToSelect.pages?.length > 0) {
+              const pageToSelect = pageId
+                ? workspaceToSelect.pages.find(p => p.id === pageId) || workspaceToSelect.pages[0]
+                : workspaceToSelect.pages[0];
+              setSelectedPage(pageToSelect);
+              navigate(`/workspace/${workspaceToSelect.id}/page/${pageToSelect.id}`);
+            } else {
+              navigate(`/workspace/${workspaceToSelect.id}`);
+            }
+          } else if (workspaceId) {
+            console.warn(`Workspace with ID ${workspaceId} not found`);
+            navigate('/home');
+          }
+        }
       } catch (error) {
-        console.error('Authentication error:', error);
+        console.error('Initialization error:', error);
         toast({
           title: 'Session expired',
-          description: 'Please log in again to continue',
+          description: 'Please log in again',
           variant: 'destructive',
         });
         navigate('/login');
@@ -49,59 +80,45 @@ const HomeContent = () => {
       }
     };
   
-    checkAuth();
-  }, [navigate, toast]);
-
-  // Đồng bộ trạng thái với URL khi workspaceId hoặc pageId thay đổi
-  useEffect(() => {
-    if (workspaces.length > 0 && workspaceId) {
-      const workspace = workspaces.find(w => w.id === workspaceId);
-      if (workspace) {
-        setSelectedWorkspace(workspace);
-        if (pageId && workspace.pages) {
-          const page = workspace.pages.find(p => p.id === pageId);
-          setSelectedPage(page || null);
-        } else {
-          setSelectedPage(workspace.pages?.[0] || null); // Chọn page đầu tiên nếu không có pageId
-        }
-      } else {
-        console.warn(`Workspace with ID ${workspaceId} not found`);
-        navigate('/home'); // Chuyển về /home nếu workspace không tồn tại
-      }
-    }
-  }, [workspaceId, pageId, workspaces, navigate]);
+    initializeApp();
+  }, [navigate, toast, workspaceId, pageId]);
 
   const fetchWorkspaces = async () => {
     try {
       setIsLoading(true);
-      const workspacesData = await workspaceService.getWorkspaces();
-      console.log('Workspaces data:', workspacesData);
+      const response = await workspaceService.getWorkspaces();
+      console.log('Raw response:', response);
+  
+      // Chuẩn hóa dữ liệu thành mảng
+      let workspacesData = Array.isArray(response) ? response : response.data || [];
+      if (!Array.isArray(workspacesData)) {
+        console.error('Expected an array, got:', workspacesData);
+        workspacesData = [];
+      }
+  
       setWorkspaces(workspacesData);
-
+      console.log('Workspaces data:', workspacesData);
+  
       // Khôi phục trạng thái từ URL
-      if (workspacesData.length > 0 && workspaceId) {
-        const workspaceToSelect = workspacesData.find(w => w.id === workspaceId);
+      if (workspacesData.length > 0) {
+        let workspaceToSelect = workspaceId
+          ? workspacesData.find(w => w.id === workspaceId) || workspacesData[0]
+          : workspacesData[0];
+  
         if (workspaceToSelect) {
           setSelectedWorkspace(workspaceToSelect);
-          if (workspaceToSelect.pages) {
-            if (pageId) {
-              const pageToSelect = workspaceToSelect.pages.find(p => p.id === pageId);
-              setSelectedPage(pageToSelect || null);
-            } else if (workspaceToSelect.pages.length > 0) {
-              setSelectedPage(workspaceToSelect.pages[0]);
-              navigate(`/workspace/${workspaceToSelect.id}/page/${workspaceToSelect.pages[0].id}`);
-            }
+          if (workspaceToSelect.pages?.length > 0) {
+            const pageToSelect = pageId
+              ? workspaceToSelect.pages.find(p => p.id === pageId) || workspaceToSelect.pages[0]
+              : workspaceToSelect.pages[0];
+            setSelectedPage(pageToSelect);
+            navigate(`/workspace/${workspaceToSelect.id}/page/${pageToSelect.id}`);
+          } else {
+            navigate(`/workspace/${workspaceToSelect.id}`);
           }
-        } else {
+        } else if (workspaceId) {
           console.warn(`Workspace with ID ${workspaceId} not found`);
           navigate('/home');
-        }
-      } else if (workspacesData.length > 0) {
-        // Nếu không có workspaceId, chọn mặc định
-        setSelectedWorkspace(workspacesData[0]);
-        if (workspacesData[0].pages?.length > 0) {
-          setSelectedPage(workspacesData[0].pages[0]);
-          navigate(`/workspace/${workspacesData[0].id}/page/${workspacesData[0].pages[0].id}`);
         }
       }
     } catch (error) {
@@ -111,6 +128,7 @@ const HomeContent = () => {
         description: 'Failed to load workspaces. Please try again.',
         variant: 'destructive',
       });
+      setWorkspaces([]);
     } finally {
       setIsLoading(false);
     }
@@ -153,7 +171,33 @@ const HomeContent = () => {
     if (isLoading) {
       return renderLoadingIndicator();
     }
-
+  
+    if (!user) {
+      return (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center p-6">
+            <h2 className="text-2xl font-bold mb-4">Please log in</h2>
+            <p className="text-gray-600 dark:text-gray-400">
+              You need to log in to access workspaces.
+            </p>
+          </div>
+        </div>
+      );
+    }
+  
+    if (workspaces.length === 0) {
+      return (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center p-6">
+            <h2 className="text-2xl font-bold mb-4">No workspaces available</h2>
+            <p className="text-gray-600 dark:text-gray-400">
+              Create a new workspace to get started.
+            </p>
+          </div>
+        </div>
+      );
+    }
+  
     if (!selectedWorkspace) {
       return (
         <div className="flex items-center justify-center h-full">
@@ -170,6 +214,8 @@ const HomeContent = () => {
     switch (currentView) {
       case 'people':
         return <CollabPage user={user} workspace={selectedWorkspace} />;
+        case 'planet':
+        return <PlanetPage user={user} />;
       case 'computer':
       default:
         return selectedPage ? (

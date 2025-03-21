@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from 'next-themes';
+import io from 'socket.io-client';
 
 // Components
 import PageHeader from './PageHeader';
@@ -19,11 +20,13 @@ import { getPageContent, savePage, restorePageVersion } from '../../services/pag
 // Animations
 import { fadeVariants, containerVariants } from '../../utils/animations';
 
+const socket = io('http://localhost:5000'); // Kết nối đến server
+
 const PageComponent = ({ workspaceId, initialPage = null }) => {
   const queryClient = useQueryClient();
   const { theme } = useTheme();
+  const [clientId] = useState(Math.random().toString(36).substring(2));
 
-  // State cục bộ
   const [page, setPage] = useState({
     id: initialPage?.id || '',
     title: initialPage?.title || 'Untitled',
@@ -39,24 +42,61 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [pageTags, setPageTags] = useState([]);
 
-  // Hàm cập nhật page
   const updatePage = (updates) => setPage((prev) => ({ ...prev, ...updates }));
 
-  // Fetch page data using React Query
   const { isLoading, data, error, refetch } = useQuery({
     queryKey: ['pageContent', initialPage?.id],
     queryFn: () => {
-      if (!initialPage?.id) {
-        throw new Error('Page ID is missing');
-      }
+      if (!initialPage?.id) throw new Error('Page ID is missing');
       return getPageContent(initialPage.id);
     },
     enabled: !!initialPage?.id,
   });
 
-  // Đồng bộ page và blocks khi initialPage thay đổi
   useEffect(() => {
-    console.log('Initial page changed:', initialPage);
+    if (initialPage?.id) {
+      socket.emit('joinPage', initialPage.id); // Tham gia room của page
+  
+      socket.on('blockUpdate', ({ blockId, content, type }) => {
+        console.log(`Received blockUpdate: blockId=${blockId}, content=${content}, type=${type}`);
+        setBlocks((prev) =>
+          prev.map((b) =>
+            b.id === blockId
+              ? {
+                  ...b,
+                  content: content !== undefined ? content : b.content,
+                  type: type !== undefined ? type : b.type,
+                }
+              : b
+          )
+        );
+      });
+
+      socket.on('blockAdded', (block) => {
+        console.log('Received blockAdded:', block);
+        setBlocks((prev) => {
+          if (prev.some((b) => b.id === block.id)) {
+            console.log('Block already exists, skipping:', block.id);
+            return prev;
+          }
+          return [...prev, block];
+        });
+      });
+
+      socket.on('blockDeleted', (blockId) => {
+        console.log(`Received blockDeleted: blockId=${blockId}`);
+        setBlocks((prev) => prev.filter((b) => b.id !== blockId));
+      });
+    }
+  
+    return () => {
+      socket.off('blockUpdate');
+      socket.off('blockAdded');
+      socket.off('blockDeleted');
+    };
+  }, [initialPage?.id]);
+
+  useEffect(() => {
     if (initialPage) {
       setPage({
         id: initialPage.id,
@@ -72,11 +112,9 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
     }
   }, [initialPage]);
 
-  // Xử lý dữ liệu khi fetch thành công
   useEffect(() => {
     if (data) {
-      console.log('Page content fetched:', data);
-      console.log('Raw blocks from server:', data.blocks); // Kiểm tra dữ liệu thực tế
+      console.log('Raw response from getPageContent:', data);
       const blocksData = Array.isArray(data.blocks)
         ? data.blocks.map((block, index) => {
             console.log('Processing block:', block);
@@ -90,11 +128,8 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
             return blockData;
           })
         : [];
-      console.log('Blocks data prepared:', blocksData);
       setBlocks(blocksData);
-      console.log('Blocks after setBlocks:', blocksData);
-
-      // Đồng bộ thông tin page từ server nếu có
+  
       if (data.page) {
         setPage((prev) => ({
           ...prev,
@@ -107,10 +142,8 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
     }
   }, [data]);
 
-  // Xử lý lỗi
   useEffect(() => {
     if (error) {
-      console.error('Failed to fetch page content:', error);
       setNotification({
         type: 'error',
         message: `Failed to load page content: ${error.message}`,
@@ -128,48 +161,22 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
     onMutate: () => setSaving(true),
     onSuccess: () => {
       setSaving(false);
-      setNotification({
-        type: 'success',
-        message: 'Page saved successfully',
-      });
+      setNotification({ type: 'success', message: 'Page saved successfully' });
       queryClient.invalidateQueries(['pageContent', initialPage?.id]);
     },
     onError: (error) => {
       setSaving(false);
-      setNotification({
-        type: 'error',
-        message: 'Failed to save page',
-      });
+      setNotification({ type: 'error', message: 'Failed to save page' });
     },
   });
 
   const handleRestore = async (version) => {
     try {
       await restorePageVersion(initialPage.id, version);
-      console.log('Restore successful, refetching data...');
-      const result = await refetch({ throwOnError: true });
-      console.log('Refetched data after restore:', result);
-      if (!result.data || !Array.isArray(result.data.blocks)) {
-        throw new Error('Invalid data after restore');
-      }
-      const newBlocks = result.data.blocks.map((block, index) => ({
-        id: block._id || block.id || `temp-${index}`,
-        content: block.content || '',
-        type: block.type || 'text',
-        position: block.position ?? index,
-      }));
-      setBlocks(newBlocks);
-      console.log('Blocks after restore:', newBlocks);
-      setNotification({
-        type: 'success',
-        message: `Restored to version ${version}`,
-      });
+      await refetch({ throwOnError: true });
+      setNotification({ type: 'success', message: `Restored to version ${version}` });
     } catch (error) {
-      console.error('Failed to restore version:', error);
-      setNotification({
-        type: 'error',
-        message: 'Failed to restore version',
-      });
+      setNotification({ type: 'error', message: 'Failed to restore version' });
     }
   };
 
@@ -178,7 +185,14 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
   const renderTabContent = () => {
     switch (selectedTab) {
       case 'content':
-        return <PageContent page={page} blocks={blocks} setBlocks={setBlocks} />;
+        return (
+          <PageContent
+            page={page}
+            blocks={blocks}
+            setBlocks={setBlocks}
+            socket={socket}
+          />
+        );
       case 'history':
         return <PageHistory page={page} setBlocks={setBlocks} onRestore={handleRestore} />;
       case 'settings':
@@ -195,8 +209,6 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
         return null;
     }
   };
-
-  console.log('Rendering with states:', { isLoading, page, blocks });
 
   if (isLoading || !initialPage?.id) {
     return <LoadingSpinner />;

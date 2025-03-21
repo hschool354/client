@@ -3,10 +3,50 @@ import { motion } from 'framer-motion';
 import { useTheme } from 'next-themes';
 import { Menu, Star, StarOff, Share2, Sun, Moon } from 'lucide-react';
 import { Tooltip } from '../shared/Tooltip';
+import { useState, useEffect } from 'react'; 
+import favoritesService from '../../services/favoritesService'; 
 
 const PageHeader = ({ page, updatePage, onSave, saving, isStarred, toggleStar, setShowEmojiPicker }) => {
   const { theme, setTheme } = useTheme();
   const titleRef = useRef(null);
+  const [isFavorite, setIsFavorite] = useState(isStarred);
+
+  useEffect(() => {
+    const checkFavoriteStatus = async () => {
+      try {
+        const favorites = await favoritesService.getFavorites();
+        const isPageFavorite = favorites.some(fav => fav.pageId === page.id);
+        setIsFavorite(isPageFavorite);
+        // Đồng bộ với isStarred từ parent nếu cần
+        if (isPageFavorite !== isStarred) {
+          toggleStar(); // Cập nhật trạng thái từ parent nếu khác
+        }
+      } catch (error) {
+        console.error('Error checking favorite status:', error.message);
+        setIsFavorite(isStarred); // Dùng giá trị từ props nếu lỗi
+      }
+    };
+    checkFavoriteStatus();
+  }, [page.id, toggleStar, isStarred]); // Chạy lại khi page.id hoặc isStarred thay đổi
+
+  // Hàm xử lý toggle favorite
+  const handleToggleStar = async () => {
+    try {
+      if (isFavorite) {
+        await favoritesService.removeFavorite(page.id);
+        console.log(`Removed page ${page.id} from favorites`);
+        setIsFavorite(false); // Cập nhật trạng thái local
+      } else {
+        await favoritesService.addFavorite(page.id);
+        console.log(`Added page ${page.id} to favorites`);
+        setIsFavorite(true); // Cập nhật trạng thái local
+      }
+      toggleStar(); // Cập nhật trạng thái từ parent
+    } catch (error) {
+      console.error('Error toggling favorite:', error.message);
+      alert(`Failed to update favorites: ${error.message}`);
+    }
+  };
 
   return (
     <motion.header
@@ -29,7 +69,7 @@ const PageHeader = ({ page, updatePage, onSave, saving, isStarred, toggleStar, s
             <div className="flex items-center space-x-2 ml-4">
               <button
                 className="text-2xl"
-                onClick={() => setShowEmojiPicker(prev => !prev)}
+                onClick={() => setShowEmojiPicker((prev) => !prev)}
                 aria-label="Change icon"
               >
                 {page.icon}
@@ -46,22 +86,36 @@ const PageHeader = ({ page, updatePage, onSave, saving, isStarred, toggleStar, s
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <Tooltip content={theme === 'dark' ? 'Light mode' : 'Dark mode'}>
+            <Tooltip content={theme === "dark" ? "Light mode" : "Dark mode"}>
               <button
                 className="p-2 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                aria-label={
+                  theme === "dark"
+                    ? "Switch to light mode"
+                    : "Switch to dark mode"
+                }
               >
-                {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+                {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
               </button>
             </Tooltip>
-            <Tooltip content={isStarred ? 'Remove from favorites' : 'Add to favorites'}>
+            <Tooltip
+              content={
+                isFavorite ? "Remove from favorites" : "Add to favorites"
+              }
+            >
               <button
                 className="p-2 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                onClick={toggleStar}
-                aria-label={isStarred ? 'Remove from favorites' : 'Add to favorites'}
+                onClick={handleToggleStar}
+                aria-label={
+                  isFavorite ? "Remove from favorites" : "Add to favorites"
+                }
               >
-                {isStarred ? <Star size={20} className="text-yellow-500" /> : <StarOff size={20} />}
+                {isFavorite ? (
+                  <Star size={20} className="text-yellow-500" />
+                ) : (
+                  <StarOff size={20} />
+                )}
               </button>
             </Tooltip>
             <Tooltip content="Share">
@@ -79,7 +133,7 @@ const PageHeader = ({ page, updatePage, onSave, saving, isStarred, toggleStar, s
               disabled={saving}
               aria-label="Save page"
             >
-              {saving ? 'Saving...' : 'Save'}
+              {saving ? "Saving..." : "Save"}
             </motion.button>
           </div>
         </div>

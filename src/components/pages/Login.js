@@ -288,7 +288,7 @@ const Login = () => {
   // Check if already logged in and redirect
   React.useEffect(() => {
     if (authService.isAuthenticated()) {
-      navigate("/dashboard");
+      navigate("/home");
     }
   }, [navigate]);
 

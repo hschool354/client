@@ -113,9 +113,15 @@ addWorkspaceMember: async (id, memberData) => {
    */
   updateMemberRole: async (workspaceId, userId, roleData) => {
     try {
+      console.log('Sending updateMemberRole:', {
+        url: `/workspaces/${workspaceId}/members/${userId}`,
+        data: roleData,
+      });
       const response = await api.put(`/workspaces/${workspaceId}/members/${userId}`, roleData);
+      console.log('updateMemberRole response:', response.data);
       return response.data;
     } catch (error) {
+      console.error('updateMemberRole error:', error.response?.data || error);
       throw error.response?.data || { message: 'Failed to update member role' };
     }
   },

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react'; // Thêm useState
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Mail, MoreHorizontal, X, Check, RefreshCw, ExternalLink } from 'lucide-react';
 import workspaceService from '../../services/workspaceService';
@@ -18,6 +18,11 @@ const MembersList = ({
   containerVariants,
   workspace
 }) => {
+  const [openMenuId, setOpenMenuId] = useState(null); // State để quản lý menu đang mở
+
+  // Danh sách vai trò khả dụng (có thể fetch từ API nếu backend hỗ trợ)
+  const availableRoles = ['OWNER', 'ADMIN', 'MEMBER', 'EDITOR', 'VIEWER'];
+
   const handleRemoveCollaborator = async (userId) => {
     const collaborator = collaborators.find(c => c.id === userId);
     if (collaborator.role === 'owner') {
@@ -38,19 +43,25 @@ const MembersList = ({
 
   const handleRoleChange = async (userId, newRole) => {
     const collaborator = collaborators.find(c => c.id === userId);
-    if (collaborator.role === 'owner') {
+    if (collaborator.role === 'OWNER') {
       showNotification("Cannot change the role of the workspace owner", "error");
       return;
     }
     setIsLoading(true);
     try {
-      await workspaceService.updateMemberRole(workspace.id, userId, { role: newRole });
-      setCollaborators(collaborators.map(c => c.id === userId ? { ...c, role: newRole } : c));
+      console.log('Before update:', { workspaceId: workspace.id, userId, newRole });
+      const response = await workspaceService.updateMemberRole(workspace.id, userId, { role: newRole });
+      console.log('After update:', response);
+      setCollaborators(collaborators.map(c => 
+        c.id === userId ? { ...c, role: newRole.toLowerCase() } : c
+      ));
       showNotification(`${collaborator?.name || 'User'} is now a ${newRole}`);
     } catch (error) {
+      console.error('Role update error:', error);
       showNotification(`Failed to update role: ${error.message}`, 'error');
     } finally {
       setIsLoading(false);
+      setOpenMenuId(null); // Đóng menu sau khi chọn
     }
   };
 
@@ -97,16 +108,16 @@ const MembersList = ({
   };
 
   const getRoleBadgeStyle = (role) => {
-    switch(role) {
-      case 'owner': return "bg-purple-100 text-purple-800";
-      case 'admin': return "bg-pink-100 text-pink-800";
-      case 'editor': return "bg-blue-100 text-blue-800";
-      case 'viewer': return "bg-green-100 text-green-800";
+    switch(role.toUpperCase()) {
+      case 'OWNER': return "bg-purple-100 text-purple-800";
+      case 'ADMIN': return "bg-pink-100 text-pink-800";
+      case 'MEMBER': return "bg-blue-100 text-blue-800";
+      case 'EDITOR': return "bg-green-100 text-green-800";
+      case 'VIEWER': return "bg-teal-100 text-teal-800";
       default: return "bg-gray-100 text-gray-800";
     }
   };
 
-  // Kiểm tra an toàn trước khi gọi .filter()
   const filteredCollaborators = Array.isArray(collaborators) 
     ? collaborators.filter(collab => 
         (collab.name?.toLowerCase().includes(searchQuery.toLowerCase()) || '') ||
@@ -162,7 +173,7 @@ const MembersList = ({
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center w-full md:w-auto justify-between md:justify-end gap-2">
+                  <div className="flex items-center w-full md:w-auto justify-between md:justify-end gap-2 relative">
                     <span className={`text-sm px-3 py-1 rounded-full ${getRoleBadgeStyle(collab.role)}`}>
                       {collab.role.charAt(0).toUpperCase() + collab.role.slice(1)}
                     </span>
@@ -171,10 +182,36 @@ const MembersList = ({
                         className="p-2 rounded-full hover:bg-gray-200"
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
-                        onClick={() => handleRoleChange(collab.id, collab.role === 'editor' ? 'viewer' : 'editor')}
+                        onClick={() => setOpenMenuId(openMenuId === collab.id ? null : collab.id)}
                       >
                         <MoreHorizontal size={18} />
                       </motion.button>
+                      <AnimatePresence>
+                        {openMenuId === collab.id && (
+                          <motion.div
+                            className="absolute right-0 mt-2 w-40 bg-white rounded-md shadow-lg z-10"
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                          >
+                            <div className="py-1">
+                              {availableRoles.map((role) => (
+                                <button
+                                  key={role}
+                                  className={`block w-full text-left px-4 py-2 text-sm ${
+                                    collab.role.toUpperCase() === role
+                                      ? 'bg-gray-100 text-gray-900'
+                                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                                  }`}
+                                  onClick={() => handleRoleChange(collab.id, role)}
+                                >
+                                  {role.charAt(0) + role.slice(1).toLowerCase()}
+                                </button>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                     <motion.button
                       className="p-2 rounded-full hover:bg-red-200 text-red-700"
@@ -194,6 +231,7 @@ const MembersList = ({
         </motion.div>
       )}
 
+      {/* Phần invites giữ nguyên */}
       {activeTab === 'invites' && (
         <motion.div 
           key="invites"
