@@ -88,16 +88,17 @@ const workspaceService = {
     }
   },
 
+
   /**
-   * Add a member to workspace
-   * @param {string} id - Workspace ID
-   * @param {Object} memberData - Object containing email and role
-   * @returns {Promise} Promise resolving to invitation data
-   */
-  addWorkspaceMember: async (id, memberData) => {
+ * Add a member to workspace
+ * @param {string} id - Workspace ID
+ * @param {Object} memberData - Object containing email and role
+ * @returns {Promise} Promise resolving to invitation data
+ */
+addWorkspaceMember: async (id, memberData) => {
     try {
       const response = await api.post(`/workspaces/${id}/members`, memberData);
-      return response.data;
+      return response.data; // Trả về { success, message, data: { invitationId, workspaceId, userId, role } }
     } catch (error) {
       throw error.response?.data || { message: 'Failed to add workspace member' };
     }

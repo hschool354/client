@@ -1,27 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, RefreshCw } from 'lucide-react';
+import { Users, RefreshCw, Check, X } from 'lucide-react';
 import InviteForm from './InviteForm';
 import MembersList from './MembersList';
-import workspaceService from '../../services/workspaceService'; // Import workspaceService
-import { getUserInvitations } from '../../services/invitationService'; // Chỉ cần getUserInvitations
+import workspaceService from '../../services/workspaceService';
+import { getUserInvitations, acceptInvitation, declineInvitation } from '../../services/invitationService';
 
 const CollabPage = ({ workspace, user }) => {
   const [inviteEmail, setInviteEmail] = useState('');
-  const [selectedRole, setSelectedRole] = useState('editor');
+  const [selectedRole, setSelectedRole] = useState('MEMBER');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('members');
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState(null);
   const [invitations, setInvitations] = useState([]);
   const [collaborators, setCollaborators] = useState([]);
+  const [userInvitations, setUserInvitations] = useState([]);
 
-  // Load dữ liệu khi workspace thay đổi, nhưng chỉ nếu workspace tồn tại
   useEffect(() => {
+    fetchUserInvitations();
     if (workspace && workspace.id) {
       fetchWorkspaceData(workspace.id);
     } else {
-      // Nếu không có workspace, reset state
       setInvitations([]);
       setCollaborators([]);
     }
@@ -30,16 +30,60 @@ const CollabPage = ({ workspace, user }) => {
   const fetchWorkspaceData = async (workspaceId) => {
     setIsLoading(true);
     try {
-      const userInvitations = await getUserInvitations();
-      const workspaceInvitations = userInvitations.filter(
-        (invite) => invite.workspaceId === workspaceId && invite.status === 'pending'
+      const userInvitationsResponse = await getUserInvitations();
+      const userInvitationsData = userInvitationsResponse.data || [];
+      setUserInvitations(userInvitationsData);
+
+      const workspaceInvitations = userInvitationsData.filter(
+        (invite) => invite.workspaceId === workspaceId
       );
       setInvitations(workspaceInvitations);
 
-      const workspaceMembers = await workspaceService.getWorkspaceMembers(workspaceId);
+      const workspaceMembersResponse = await workspaceService.getWorkspaceMembers(workspaceId);
+      const workspaceMembers = workspaceMembersResponse.data || [];
       setCollaborators(workspaceMembers);
     } catch (error) {
+      console.error('Error in fetchWorkspaceData:', error);
       showNotification(`Error loading workspace data: ${error.message}`, 'error');
+      setCollaborators([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchUserInvitations = async () => {
+    try {
+      const response = await getUserInvitations();
+      setUserInvitations(response.data || []);
+    } catch (error) {
+      console.error('Error fetching user invitations:', error);
+    }
+  };
+
+  const handleAcceptInvitation = async (invitationId) => {
+    setIsLoading(true);
+    try {
+      await acceptInvitation(invitationId);
+      showNotification('Invitation accepted successfully');
+      setUserInvitations(userInvitations.filter((inv) => inv.invitationId !== invitationId));
+      if (workspace && workspace.id) {
+        fetchWorkspaceData(workspace.id);
+      }
+    } catch (error) {
+      showNotification(`Failed to accept invitation: ${error.message}`, 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeclineInvitation = async (invitationId) => {
+    setIsLoading(true);
+    try {
+      await declineInvitation(invitationId);
+      showNotification('Invitation declined successfully');
+      setUserInvitations(userInvitations.filter((inv) => inv.invitationId !== invitationId));
+    } catch (error) {
+      showNotification(`Failed to decline invitation: ${error.message}`, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -60,35 +104,26 @@ const CollabPage = ({ workspace, user }) => {
 
   const containerVariants = {
     hidden: { opacity: 0 },
-    show: { opacity: 1, transition: { staggerChildren: 0.05 } }
+    show: { opacity: 1, transition: { staggerChildren: 0.05 } },
   };
 
   const notificationVariants = {
     hidden: { opacity: 0, y: -50 },
     visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 500, damping: 28 } },
-    exit: { opacity: 0, y: -20, transition: { duration: 0.2 } }
+    exit: { opacity: 0, y: -20, transition: { duration: 0.2 } },
   };
-
-  // Nếu workspace chưa được chọn, hiển thị thông báo
-  if (!workspace) {
-    return (
-      <div className="flex-1 min-h-screen bg-gray-50 text-gray-900 flex items-center justify-center">
-        <p className="text-lg text-gray-600">Please select a workspace to view collaboration details.</p>
-      </div>
-    );
-  }
 
   return (
     <div className="flex-1 min-h-screen bg-gray-50 text-gray-900">
       <AnimatePresence>
         {isLoading && (
-          <motion.div 
+          <motion.div
             className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <motion.div 
+            <motion.div
               animate={{ rotate: 360 }}
               transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
             >
@@ -100,8 +135,10 @@ const CollabPage = ({ workspace, user }) => {
 
       <AnimatePresence>
         {notification && (
-          <motion.div 
-            className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg ${getNotificationStyle(notification.type)} text-white flex items-center`}
+          <motion.div
+            className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg ${getNotificationStyle(
+              notification.type
+            )} text-white flex items-center`}
             initial="hidden"
             animate="visible"
             exit="exit"
@@ -113,7 +150,7 @@ const CollabPage = ({ workspace, user }) => {
       </AnimatePresence>
 
       <div className="max-w-5xl mx-auto p-4 md:p-6">
-        <motion.div 
+        <motion.div
           className="mb-6 md:mb-8"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -131,38 +168,94 @@ const CollabPage = ({ workspace, user }) => {
             </h1>
           </div>
           <p className="text-base md:text-lg text-gray-600">
-            Invite people to collaborate on "{workspace.name || 'Project Alpha'}"
+            {workspace
+              ? `Invite people to collaborate on "${workspace.name || 'Project Alpha'}"`
+              : 'Manage your workspace invitations'}
           </p>
         </motion.div>
 
-        <InviteForm 
-          workspace={workspace}
-          inviteEmail={inviteEmail}
-          setInviteEmail={setInviteEmail}
-          selectedRole={selectedRole}
-          setSelectedRole={setSelectedRole}
-          invitations={invitations}
-          setInvitations={setInvitations}
-          collaborators={collaborators}
-          setCollaborators={setCollaborators}
-          setIsLoading={setIsLoading}
-          showNotification={showNotification}
-        />
+        {/* Bảng lời mời */}
+        <motion.div
+          className="mb-6 rounded-xl shadow-lg p-4 md:p-6 bg-white/90 border border-gray-100/50"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <h2 className="text-xl font-semibold mb-4">Your Invitations</h2>
+          {userInvitations.length > 0 ? (
+            <div className="space-y-4">
+              {userInvitations.map((invite) => (
+                <div
+                  key={invite.invitationId}
+                  className="flex justify-between items-center p-3 bg-gray-100 rounded-lg"
+                >
+                  <div>
+                    <p>
+                      Invited to <strong>{invite.workspaceName}</strong> as{' '}
+                      <strong>{invite.role}</strong> by {invite.inviterEmail}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Sent on {new Date(invite.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <motion.button
+                      className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => handleAcceptInvitation(invite.invitationId)}
+                    >
+                      <Check size={16} className="inline mr-1" /> Accept
+                    </motion.button>
+                    <motion.button
+                      className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => handleDeclineInvitation(invite.invitationId)}
+                    >
+                      <X size={16} className="inline mr-1" /> Decline
+                    </motion.button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-600">No invitations found.</p>
+          )}
+        </motion.div>
 
-        <MembersList 
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          collaborators={collaborators}
-          setCollaborators={setCollaborators}
-          invitations={invitations}
-          setInvitations={setInvitations}
-          setIsLoading={setIsLoading}
-          showNotification={showNotification}
-          containerVariants={containerVariants}
-          workspace={workspace}
-        />
+        {workspace && (
+          <>
+            <InviteForm
+              workspace={workspace}
+              inviteEmail={inviteEmail}
+              setInviteEmail={setInviteEmail}
+              selectedRole={selectedRole}
+              setSelectedRole={setSelectedRole}
+              invitations={invitations}
+              setInvitations={setInvitations}
+              collaborators={collaborators}
+              setCollaborators={setCollaborators}
+              setIsLoading={setIsLoading}
+              showNotification={showNotification}
+            />
+
+            <MembersList
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              collaborators={collaborators}
+              setCollaborators={setCollaborators}
+              invitations={invitations}
+              setInvitations={setInvitations}
+              setIsLoading={setIsLoading}
+              showNotification={showNotification}
+              containerVariants={containerVariants}
+              workspace={workspace}
+            />
+          </>
+        )}
       </div>
     </div>
   );

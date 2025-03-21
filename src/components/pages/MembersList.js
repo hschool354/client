@@ -1,8 +1,8 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Mail, MoreHorizontal, X, Check, RefreshCw, ExternalLink } from 'lucide-react';
-import workspaceService from '../../services/workspaceService'; // Import workspaceService
-import { cancelInvitation } from '../../services/invitationService'; // Import cancelInvitation
+import workspaceService from '../../services/workspaceService';
+import { cancelInvitation } from '../../services/invitationService';
 
 const MembersList = ({
   activeTab,
@@ -55,7 +55,6 @@ const MembersList = ({
   };
 
   const handleResendInvite = (email) => {
-    // Tạm thời giữ logic mock vì cần API resend từ backend
     setIsLoading(true);
     setTimeout(() => {
       setInvitations(invitations.map(invite => 
@@ -107,11 +106,14 @@ const MembersList = ({
     }
   };
 
-  const filteredCollaborators = collaborators.filter(collab => 
-    (collab.name?.toLowerCase().includes(searchQuery.toLowerCase()) || '') ||
-    collab.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    collab.role.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Kiểm tra an toàn trước khi gọi .filter()
+  const filteredCollaborators = Array.isArray(collaborators) 
+    ? collaborators.filter(collab => 
+        (collab.name?.toLowerCase().includes(searchQuery.toLowerCase()) || '') ||
+        collab.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        collab.role?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : [];
 
   return (
     <AnimatePresence mode="wait">
@@ -124,7 +126,7 @@ const MembersList = ({
           exit={{ opacity: 0 }}
         >
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-5 gap-4">
-            <h2 className="text-xl font-semibold">Members ({collaborators.length})</h2>
+            <h2 className="text-xl font-semibold">Members ({filteredCollaborators.length})</h2>
             <div className="relative w-full md:w-auto">
               <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" />
               <input
@@ -138,52 +140,56 @@ const MembersList = ({
           </div>
 
           <motion.div className="space-y-3" variants={containerVariants} initial="hidden" animate="show">
-            {filteredCollaborators.map((collab) => (
-              <motion.div 
-                key={collab.id}
-                className="flex flex-col md:flex-row items-start md:items-center justify-between p-4 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
-                variants={{ hidden: { y: 10, opacity: 0 }, show: { y: 0, opacity: 1 } }}
-                whileHover={{ y: -2, boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)" }}
-              >
-                <div className="flex items-center mb-3 md:mb-0">
-                  <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${getAvatarColor(collab.name)} flex items-center justify-center mr-4 shadow-md`}>
-                    <span className="text-sm font-bold text-white">{getInitials(collab.name)}</span>
-                  </div>
-                  <div>
-                    <p className="font-medium text-lg">{collab.name || 'Unnamed'}</p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm text-gray-500">{collab.email}</p>
-                      <span className="inline-flex items-center text-xs px-2 py-1 rounded-full bg-gray-200 text-gray-600">
-                        {collab.lastActive || 'N/A'}
-                      </span>
+            {filteredCollaborators.length > 0 ? (
+              filteredCollaborators.map((collab) => (
+                <motion.div 
+                  key={collab.id}
+                  className="flex flex-col md:flex-row items-start md:items-center justify-between p-4 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+                  variants={{ hidden: { y: 10, opacity: 0 }, show: { y: 0, opacity: 1 } }}
+                  whileHover={{ y: -2, boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)" }}
+                >
+                  <div className="flex items-center mb-3 md:mb-0">
+                    <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${getAvatarColor(collab.name)} flex items-center justify-center mr-4 shadow-md`}>
+                      <span className="text-sm font-bold text-white">{getInitials(collab.name)}</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-lg">{collab.name || 'Unnamed'}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm text-gray-500">{collab.email}</p>
+                        <span className="inline-flex items-center text-xs px-2 py-1 rounded-full bg-gray-200 text-gray-600">
+                          {collab.lastActive || 'N/A'}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="flex items-center w-full md:w-auto justify-between md:justify-end gap-2">
-                  <span className={`text-sm px-3 py-1 rounded-full ${getRoleBadgeStyle(collab.role)}`}>
-                    {collab.role.charAt(0).toUpperCase() + collab.role.slice(1)}
-                  </span>
-                  <div className="relative">
+                  <div className="flex items-center w-full md:w-auto justify-between md:justify-end gap-2">
+                    <span className={`text-sm px-3 py-1 rounded-full ${getRoleBadgeStyle(collab.role)}`}>
+                      {collab.role.charAt(0).toUpperCase() + collab.role.slice(1)}
+                    </span>
+                    <div className="relative">
+                      <motion.button
+                        className="p-2 rounded-full hover:bg-gray-200"
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => handleRoleChange(collab.id, collab.role === 'editor' ? 'viewer' : 'editor')}
+                      >
+                        <MoreHorizontal size={18} />
+                      </motion.button>
+                    </div>
                     <motion.button
-                      className="p-2 rounded-full hover:bg-gray-200"
+                      className="p-2 rounded-full hover:bg-red-200 text-red-700"
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
-                      onClick={() => handleRoleChange(collab.id, collab.role === 'editor' ? 'viewer' : 'editor')} // Ví dụ toggle role
+                      onClick={() => handleRemoveCollaborator(collab.id)}
                     >
-                      <MoreHorizontal size={18} />
+                      <X size={18} />
                     </motion.button>
                   </div>
-                  <motion.button
-                    className="p-2 rounded-full hover:bg-red-200 text-red-700"
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => handleRemoveCollaborator(collab.id)}
-                  >
-                    <X size={18} />
-                  </motion.button>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              ))
+            ) : (
+              <p>No members found.</p>
+            )}
           </motion.div>
         </motion.div>
       )}

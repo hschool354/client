@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import workspaceService from '../../services/workspaceService';
 import authService from '../../services/authService';
 import { useToast } from "../ui/use-toast";
@@ -8,10 +8,10 @@ import Sidebar from './Sidebar';
 import PageComponent from './PageComponent';
 import CollabPage from './CollabPage';
 
-// Create a wrapped component that uses toast inside the provider
 const HomeContent = () => {
   const navigate = useNavigate();
-  const { toast } = useToast(); // Now this is used inside the provider
+  const { workspaceId, pageId } = useParams();
+  const { toast } = useToast();
   const [currentView, setCurrentView] = useState('computer');
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState(null);
@@ -19,7 +19,7 @@ const HomeContent = () => {
   const [selectedWorkspace, setSelectedWorkspace] = useState(null);
   const [selectedPage, setSelectedPage] = useState(null);
 
-  // Check authentication and load user data
+  // Check authentication và load dữ liệu
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -52,17 +52,56 @@ const HomeContent = () => {
     checkAuth();
   }, [navigate, toast]);
 
-  // Fetch workspaces for the current user
+  // Đồng bộ trạng thái với URL khi workspaceId hoặc pageId thay đổi
+  useEffect(() => {
+    if (workspaces.length > 0 && workspaceId) {
+      const workspace = workspaces.find(w => w.id === workspaceId);
+      if (workspace) {
+        setSelectedWorkspace(workspace);
+        if (pageId && workspace.pages) {
+          const page = workspace.pages.find(p => p.id === pageId);
+          setSelectedPage(page || null);
+        } else {
+          setSelectedPage(workspace.pages?.[0] || null); // Chọn page đầu tiên nếu không có pageId
+        }
+      } else {
+        console.warn(`Workspace with ID ${workspaceId} not found`);
+        navigate('/home'); // Chuyển về /home nếu workspace không tồn tại
+      }
+    }
+  }, [workspaceId, pageId, workspaces, navigate]);
+
   const fetchWorkspaces = async () => {
     try {
       setIsLoading(true);
       const workspacesData = await workspaceService.getWorkspaces();
-      console.log('Workspaces data:', workspacesData); // Debug
+      console.log('Workspaces data:', workspacesData);
       setWorkspaces(workspacesData);
-      if (workspacesData.length > 0) {
+
+      // Khôi phục trạng thái từ URL
+      if (workspacesData.length > 0 && workspaceId) {
+        const workspaceToSelect = workspacesData.find(w => w.id === workspaceId);
+        if (workspaceToSelect) {
+          setSelectedWorkspace(workspaceToSelect);
+          if (workspaceToSelect.pages) {
+            if (pageId) {
+              const pageToSelect = workspaceToSelect.pages.find(p => p.id === pageId);
+              setSelectedPage(pageToSelect || null);
+            } else if (workspaceToSelect.pages.length > 0) {
+              setSelectedPage(workspaceToSelect.pages[0]);
+              navigate(`/workspace/${workspaceToSelect.id}/page/${workspaceToSelect.pages[0].id}`);
+            }
+          }
+        } else {
+          console.warn(`Workspace with ID ${workspaceId} not found`);
+          navigate('/home');
+        }
+      } else if (workspacesData.length > 0) {
+        // Nếu không có workspaceId, chọn mặc định
         setSelectedWorkspace(workspacesData[0]);
-        if (workspacesData[0].pages && workspacesData[0].pages.length > 0) {
+        if (workspacesData[0].pages?.length > 0) {
           setSelectedPage(workspacesData[0].pages[0]);
+          navigate(`/workspace/${workspacesData[0].id}/page/${workspacesData[0].pages[0].id}`);
         }
       }
     } catch (error) {
@@ -76,32 +115,29 @@ const HomeContent = () => {
       setIsLoading(false);
     }
   };
-  
+
   const handleWorkspaceSelect = (workspace) => {
-    console.log('Selected workspace:', workspace); // Debug
+    console.log('Selected workspace:', workspace);
     setSelectedWorkspace(workspace);
-    if (workspace && workspace.pages && workspace.pages.length > 0) {
-      setSelectedPage(workspace.pages[0]);
-    } else {
-      setSelectedPage(null);
+    const firstPage = workspace?.pages?.[0] || null;
+    setSelectedPage(firstPage);
+    navigate(`/workspace/${workspace.id}${firstPage ? `/page/${firstPage.id}` : ''}`);
+  };
+
+  const handlePageSelect = (page) => {
+    console.log("Handling page select:", page);
+    setSelectedPage(page);
+    setCurrentView('computer');
+    if (selectedWorkspace) {
+      navigate(`/workspace/${selectedWorkspace.id}/page/${page.id}`);
     }
   };
 
-  // Handle main navigation clicks from sidebar
   const handleNavClick = (tab) => {
     console.log('Navigation clicked:', tab);
     setCurrentView(tab);
   };
 
-
-  // Handle page selection
-  const handlePageSelect = (page) => {
-    console.log("Handling page select:", page); // Debug
-    setSelectedPage(page);
-    setCurrentView('computer'); // Đảm bảo ở view computer khi chọn page
-  };
-
-  // Render loading indicator
   const renderLoadingIndicator = () => {
     return (
       <div className="flex items-center justify-center h-full">
@@ -113,32 +149,32 @@ const HomeContent = () => {
     );
   };
 
-  // Render the main content based on current view
   const renderContent = () => {
     if (isLoading) {
       return renderLoadingIndicator();
     }
+
+    if (!selectedWorkspace) {
+      return (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center p-6">
+            <h2 className="text-2xl font-bold mb-4">No workspace selected</h2>
+            <p className="text-gray-600 dark:text-gray-400">
+              Please select a workspace from the sidebar.
+            </p>
+          </div>
+        </div>
+      );
+    }
   
     switch (currentView) {
       case 'people':
-        if (!selectedWorkspace) {
-          return (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center p-6">
-                <h2 className="text-2xl font-bold mb-4">No workspace selected</h2>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Please select a workspace from the sidebar to manage collaborators.
-                </p>
-              </div>
-            </div>
-          );
-        }
         return <CollabPage user={user} workspace={selectedWorkspace} />;
       case 'computer':
       default:
         return selectedPage ? (
           <PageComponent 
-            workspaceId={selectedWorkspace?.id} 
+            workspaceId={selectedWorkspace.id} 
             initialPage={selectedPage}
           />
         ) : (
@@ -161,7 +197,7 @@ const HomeContent = () => {
         workspaces={workspaces}
         selectedWorkspace={selectedWorkspace}
         onWorkspaceSelect={handleWorkspaceSelect}
-        onPageSelect={handlePageSelect} // Truyền hàm onPageSelect vào Sidebar
+        onPageSelect={handlePageSelect}
         onNavClick={handleNavClick}
         activeTab={currentView}
       />
@@ -172,8 +208,7 @@ const HomeContent = () => {
   );
 };
 
-// Main component that wraps everything with the ToastProvider
-const Home = () => {
+const HomePage = () => {
   return (
     <ToastProvider>
       <HomeContent />
@@ -181,4 +216,4 @@ const Home = () => {
   );
 };
 
-export default Home;
+export default HomePage;

@@ -11,21 +11,31 @@ import './index.css';
 
 const queryClient = new QueryClient();
 
-
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-    <Router>
-      <div className="w-full">
-        <Routes>
-          <Route path="/" element={<Welcome />} />
-          <Route path="/welcome" element={<Welcome />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/home" element={<HomePage />} />
-        </Routes>
-      </div>
-    </Router>
+      <Router>
+        <div className="w-full">
+          <Routes>
+            <Route path="/" element={<Welcome />} />
+            <Route path="/welcome" element={<Welcome />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/home" element={<HomePage />} />
+            <Route path="/workspace/:workspaceId" element={<HomePage />} />
+            <Route path="/workspace/:workspaceId/page/:pageId" element={<HomePage />} />
+            {/* Fallback route cho URL không khớp */}
+            <Route
+              path="*"
+              element={
+                <div className="flex items-center justify-center h-screen">
+                  <h1 className="text-2xl font-bold">404 - Page Not Found</h1>
+                </div>
+              }
+            />
+          </Routes>
+        </div>
+      </Router>
     </QueryClientProvider>
   );
 }

@@ -28,7 +28,6 @@ import {
   removeFromFavorites,
 } from "../../services/pageService";
 
-// shadcn/ui components
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import {
@@ -49,27 +48,30 @@ import { Badge } from "../ui/badge";
 import { Separator } from "../ui/separator";
 import { ScrollArea } from "../ui/scroll-area";
 import { useToast } from "../ui/use-toast";
+import { useNavigate } from "react-router-dom";
 
 const Sidebar = ({
   user,
   workspaces: initialWorkspaces,
-  selectedWorkspace, // Nhận từ Home.js
-  onWorkspaceSelect, // Hàm để cập nhật selectedWorkspace trong Home.js
+  selectedWorkspace,
+  onWorkspaceSelect,
   onNavClick,
   onPageSelect,
-  activeTab, // Nhận activeTab từ Home.js
+  activeTab,
 }) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [showNewPageModal, setShowNewPageModal] = useState(false);
   const [newPageTitle, setNewPageTitle] = useState("");
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded] = useState(true); // Sidebar chính luôn mở
   const [activePages, setActivePages] = useState([]);
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
   const [showWorkspaceSelector, setShowWorkspaceSelector] = useState(false);
-  const [showNewWorkspaceForm, setShowNewWorkspaceForm] = useState(false);
   const [newWorkspaceName, setNewWorkspaceName] = useState("");
-  const [showComputerSidebar, setShowComputerSidebar] = useState(false);
+  const [showComputerSidebar, setShowComputerSidebar] = useState(
+    !!selectedWorkspace
+  ); // Mở nếu có selectedWorkspace
   const [darkMode, setDarkMode] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [workspaces, setWorkspaces] = useState(initialWorkspaces || []);
@@ -79,6 +81,16 @@ const Sidebar = ({
   useEffect(() => {
     fetchWorkspaces();
   }, []);
+
+  useEffect(() => {
+    if (selectedWorkspace) {
+      setShowComputerSidebar(true); // Tự động mở khi có selectedWorkspace
+      fetchWorkspacePages(selectedWorkspace.id);
+    } else {
+      setShowComputerSidebar(false);
+      setActivePages([]);
+    }
+  }, [selectedWorkspace]);
 
   const fetchWorkspaces = async () => {
     try {
@@ -100,8 +112,6 @@ const Sidebar = ({
       const workspacesData = response.data;
       setWorkspaces(workspacesData);
       console.log("Workspaces set in state:", workspacesData);
-
-      // Không tự động chọn workspace ở đây nữa, để Home.js quản lý
     } catch (error) {
       console.error("Error fetching workspaces:", error);
       if (error.response) {
@@ -115,18 +125,6 @@ const Sidebar = ({
       setIsLoading(false);
     }
   };
-
-  // Xóa useEffect khởi tạo selectedWorkspace trong Sidebar
-  // Dùng selectedWorkspace từ props thay vì state nội bộ
-
-  // Update active pages khi selectedWorkspace thay đổi
-  useEffect(() => {
-    if (selectedWorkspace) {
-      fetchWorkspacePages(selectedWorkspace.id);
-    } else {
-      setActivePages([]);
-    }
-  }, [selectedWorkspace]);
 
   const fetchWorkspacePages = async (workspaceId) => {
     try {
@@ -179,7 +177,8 @@ const Sidebar = ({
       console.log("Created workspace:", createdWorkspace);
 
       await fetchWorkspaces();
-      onWorkspaceSelect(createdWorkspace); // Thông báo cho Home.js
+      onWorkspaceSelect(createdWorkspace);
+      navigate(`/workspace/${createdWorkspace.id}`);
       setNewWorkspaceName("");
       setNewWorkspaceDescription("");
       setShowWorkspaceModal(false);
@@ -219,7 +218,8 @@ const Sidebar = ({
       if (selectedWorkspace?.id === workspaceId) {
         const newSelected =
           updatedWorkspaces.length > 0 ? updatedWorkspaces[0] : null;
-        onWorkspaceSelect(newSelected); // Thông báo cho Home.js
+        onWorkspaceSelect(newSelected);
+        navigate(newSelected ? `/workspace/${newSelected.id}` : "/home");
       }
 
       setShowWorkspaceSelector(false);
@@ -245,7 +245,8 @@ const Sidebar = ({
       );
 
       if (selectedWorkspace?.id === id) {
-        onWorkspaceSelect(updatedWorkspace); // Thông báo cho Home.js
+        onWorkspaceSelect(updatedWorkspace);
+        navigate(`/workspace/${updatedWorkspace.id}`);
       }
     } catch (error) {
       console.error("Error updating workspace:", error);
@@ -255,8 +256,9 @@ const Sidebar = ({
   };
 
   const handleSelectWorkspace = (workspace) => {
-    onWorkspaceSelect(workspace); // Gọi hàm từ Home.js để cập nhật selectedWorkspace
+    onWorkspaceSelect(workspace);
     setShowWorkspaceSelector(false);
+    navigate(`/workspace/${workspace.id}`);
   };
 
   const handleCreatePage = async () => {
@@ -269,11 +271,13 @@ const Sidebar = ({
         icon: "📄",
       };
 
-      await createPage(selectedWorkspace.id, pageData);
+      const newPage = await createPage(selectedWorkspace.id, pageData);
       setNewPageTitle("");
       setShowNewPageModal(false);
 
       await fetchWorkspacePages(selectedWorkspace.id);
+      onPageSelect(newPage);
+      navigate(`/workspace/${selectedWorkspace.id}/page/${newPage.id}`);
     } catch (error) {
       console.error("Error creating page:", error);
     } finally {
@@ -293,6 +297,7 @@ const Sidebar = ({
       if (selectedWorkspace) {
         await fetchWorkspacePages(selectedWorkspace.id);
       }
+      navigate(`/workspace/${selectedWorkspace.id}`);
     } catch (error) {
       console.error("Error deleting page:", error);
     } finally {
@@ -306,7 +311,7 @@ const Sidebar = ({
     } else {
       setShowComputerSidebar(false);
     }
-  
+
     if (onNavClick) {
       console.log("Calling onNavClick with:", tab);
       onNavClick(tab);
@@ -336,7 +341,6 @@ const Sidebar = ({
         animate={{ width: "72px" }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
       >
-        {/* Glass overlay for main sidebar */}
         <div className="absolute inset-0 bg-white/15 backdrop-filter backdrop-blur-[2px] border-r border-white/15"></div>
 
         {/* Logo Area */}
@@ -419,10 +423,8 @@ const Sidebar = ({
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
           >
-            {/* Glass overlay for secondary sidebar */}
             <div className="absolute inset-0 bg-white/40 backdrop-filter backdrop-blur-sm"></div>
 
-            {/* Toggle Button */}
             <Button
               variant="ghost"
               size="icon"
@@ -441,7 +443,6 @@ const Sidebar = ({
               </motion.button>
             </Button>
 
-            {/* Current Workspace Title */}
             <div className="p-4 border-b border-blue-100 relative z-10">
               <motion.div
                 className="flex items-center justify-between"
@@ -466,7 +467,6 @@ const Sidebar = ({
               </motion.div>
             </div>
 
-            {/* Search Box */}
             <div className="px-4 pt-4 relative z-10">
               <div className="relative">
                 <Search
@@ -483,7 +483,6 @@ const Sidebar = ({
               </div>
             </div>
 
-            {/* Pages List */}
             <div className="flex-1 relative z-10">
               <div className="px-4 pt-4 flex items-center justify-between">
                 <Badge
@@ -721,7 +720,7 @@ const Sidebar = ({
             className="flex items-center text-sm bg-blue-50 hover:bg-blue-100 text-blue-600 w-full px-3 py-2.5 rounded-xl hover:shadow-md transition-all"
             onClick={() => {
               setShowWorkspaceSelector(false);
-              setShowWorkspaceModal(true); // Mở modal tạo workspace thay vì form
+              setShowWorkspaceModal(true);
             }}
             whileHover={{ x: 2, backgroundColor: "rgba(219, 234, 254, 1)" }}
           >
@@ -767,46 +766,36 @@ const Sidebar = ({
           </div>
 
           <DialogFooter className="flex justify-end space-x-3 mt-4">
-            <Button
-              variant="outline"
-              className="px-4 py-2.5 rounded-xl bg-white hover:bg-gray-50 transition-colors text-sm text-gray-600 border-blue-100"
+            <motion.button
+              className="px-4 py-2.5 rounded-xl bg-white hover:bg-gray-50 transition-colors text-sm text-gray-600 border border-blue-100"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => setShowWorkspaceModal(false)}
-              asChild
             >
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                Cancel
-              </motion.button>
-            </Button>
-            <Button
-              variant="default"
-              className={`px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-400 to-sky-500 hover:from-blue-500 hover:to-sky-600 transition-all text-sm font-medium shadow-md ${
+              Cancel
+            </motion.button>
+            <motion.button
+              className={`px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-400 to-sky-500 text-white text-sm font-medium shadow-md transition-all ${
                 !newWorkspaceName.trim() || isLoading
                   ? "opacity-70 cursor-not-allowed"
-                  : ""
+                  : "hover:from-blue-500 hover:to-sky-600"
               }`}
+              whileHover={
+                newWorkspaceName.trim() && !isLoading
+                  ? {
+                      scale: 1.02,
+                      boxShadow: "0 0 15px rgba(59, 130, 246, 0.3)",
+                    }
+                  : {}
+              }
+              whileTap={
+                newWorkspaceName.trim() && !isLoading ? { scale: 0.98 } : {}
+              }
               onClick={handleCreateWorkspace}
               disabled={!newWorkspaceName.trim() || isLoading}
-              asChild
             >
-              <motion.button
-                whileHover={
-                  newWorkspaceName.trim() && !isLoading
-                    ? {
-                        scale: 1.02,
-                        boxShadow: "0 0 15px rgba(59, 130, 246, 0.3)",
-                      }
-                    : {}
-                }
-                whileTap={
-                  newWorkspaceName.trim() && !isLoading ? { scale: 0.98 } : {}
-                }
-              >
-                {isLoading ? "Creating..." : "Create"}
-              </motion.button>
-            </Button>
+              {isLoading ? "Creating..." : "Create"}
+            </motion.button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -877,7 +866,7 @@ const Sidebar = ({
   );
 };
 
-// Enhanced Navigation Icon component with tooltip using shadcn/ui
+// Enhanced Navigation Icon component
 const NavIcon = ({ icon, isActive, onClick, tooltip }) => {
   return (
     <Tooltip>
