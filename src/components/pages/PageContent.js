@@ -1,339 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
-import { Plus, Trash2, Tag } from 'lucide-react';
+import { Plus, Tag } from 'lucide-react';
 import { createBlock, updateBlock, deleteBlock } from '../../services/blockService';
+import BlockRenderer from '../BlockRenderer';
+import BottomToolbar from '../pages/BottomToolbar';
 
-const TextBlock = React.memo(({ block, onFocus, onBlur, onDelete, onUpdate, onInputChange, socket }) => {
-  const handleUpdate = async (e) => {
-    const newContent = e.target.value;
-    if (!block.id) {
-      console.error("Block id is undefined:", block);
-      return;
-    }
-    onUpdate(block.id, { content: newContent });
-    try {
-      await updateBlock(block.id, { content: newContent });
-      socket.emit('blockUpdate', { pageId: block.pageId, blockId: block.id, content: newContent });
-    } catch (error) {
-      console.error("Failed to update block:", error);
-    }
-  };
-
-  return (
-    <div className="relative">
-      <div className="absolute -left-10 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          className="p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-          onClick={onDelete}
-        >
-          <Trash2 size={16} />
-        </button>
-      </div>
-      <textarea
-        data-block-id={block.id}
-        className="w-full p-2 border-0 focus:outline-none focus:ring-0 resize-none bg-transparent text-gray-900 dark:text-gray-100"
-        value={block.content || ''}
-        onChange={(e) => {
-          handleUpdate(e);
-          onInputChange(e, block.id);
-        }}
-        onFocus={onFocus}
-        onBlur={onBlur}
-        placeholder="Type / for commands..."
-        rows={block.content ? block.content.split('\n').length : 1}
-        style={{ minHeight: '1.5rem' }}
-      />
-    </div>
-  );
-});
-
-const HeadingBlock = React.memo(({ block, onFocus, onBlur, onDelete, onUpdate, onInputChange, socket }) => {
-  const handleUpdate = async (e) => {
-    const newContent = e.target.value;
-    if (!block.id) {
-      console.error("Block id is undefined:", block);
-      return;
-    }
-    onUpdate(block.id, { content: newContent });
-    try {
-      await updateBlock(block.id, { content: newContent });
-      socket.emit('blockUpdate', { pageId: block.pageId, blockId: block.id, content: newContent });
-    } catch (error) {
-      console.error("Failed to update block:", error);
-    }
-  };
-
-  return (
-    <div className="relative">
-      <div className="absolute -left-10 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          className="p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-          onClick={onDelete}
-        >
-          <Trash2 size={16} />
-        </button>
-      </div>
-      <textarea
-        data-block-id={block.id}
-        className="w-full p-2 border-0 focus:outline-none focus:ring-0 resize-none bg-transparent text-2xl font-bold text-gray-900 dark:text-gray-100"
-        value={block.content || ''}
-        onChange={(e) => {
-          handleUpdate(e);
-          onInputChange(e, block.id);
-        }}
-        onFocus={onFocus}
-        onBlur={onBlur}
-        placeholder="Heading"
-        rows={block.content ? block.content.split('\n').length : 1}
-        style={{ minHeight: '2rem' }}
-      />
-    </div>
-  );
-});
-
-const BulletListBlock = React.memo(({ block, onFocus, onBlur, onDelete, onUpdate, onInputChange, socket }) => {
-  const handleUpdate = async (e) => {
-    const newContent = e.target.value;
-    if (!block.id) {
-      console.error("Block id is undefined:", block);
-      return;
-    }
-    onUpdate(block.id, { content: newContent });
-    try {
-      await updateBlock(block.id, { content: newContent });
-      socket.emit('blockUpdate', { pageId: block.pageId, blockId: block.id, content: newContent });
-    } catch (error) {
-      console.error("Failed to update block:", error);
-    }
-  };
-
-  return (
-    <div className="relative">
-      <div className="absolute -left-10 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          className="p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-          onClick={onDelete}
-        >
-          <Trash2 size={16} />
-        </button>
-      </div>
-      <div className="flex">
-        <div className="mt-3 mr-2">•</div>
-        <textarea
-          data-block-id={block.id}
-          className="w-full p-2 border-0 focus:outline-none focus:ring-0 resize-none bg-transparent text-gray-900 dark:text-gray-100"
-          value={block.content || ''}
-          onChange={(e) => {
-            handleUpdate(e);
-            onInputChange(e, block.id);
-          }}
-          onFocus={onFocus}
-          onBlur={onBlur}
-          placeholder="List item"
-          rows={block.content ? block.content.split('\n').length : 1}
-          style={{ minHeight: '1.5rem' }}
-        />
-      </div>
-    </div>
-  );
-});
-
-const NumberedListBlock = React.memo(({ block, onFocus, onBlur, onDelete, onUpdate, onInputChange, socket }) => {
-  const handleUpdate = async (e) => {
-    const newContent = e.target.value;
-    if (!block.id) {
-      console.error("Block id is undefined:", block);
-      return;
-    }
-    onUpdate(block.id, { content: newContent });
-    try {
-      await updateBlock(block.id, { content: newContent });
-      socket.emit('blockUpdate', { pageId: block.pageId, blockId: block.id, content: newContent });
-    } catch (error) {
-      console.error("Failed to update block:", error);
-    }
-  };
-
-  return (
-    <div className="relative">
-      <div className="absolute -left-10 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          className="p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-          onClick={onDelete}
-        >
-          <Trash2 size={16} />
-        </button>
-      </div>
-      <div className="flex">
-        <div className="mt-3 mr-2">{block.position + 1}.</div>
-        <textarea
-          data-block-id={block.id}
-          className="w-full p-2 border-0 focus:outline-none focus:ring-0 resize-none bg-transparent text-gray-900 dark:text-gray-100"
-          value={block.content || ''}
-          onChange={(e) => {
-            handleUpdate(e);
-            onInputChange(e, block.id);
-          }}
-          onFocus={onFocus}
-          onBlur={onBlur}
-          placeholder="List item"
-          rows={block.content ? block.content.split('\n').length : 1}
-          style={{ minHeight: '1.5rem' }}
-        />
-      </div>
-    </div>
-  );
-});
-
-const QuoteBlock = React.memo(({ block, onFocus, onBlur, onDelete, onUpdate, onInputChange, socket }) => {
-  const handleUpdate = async (e) => {
-    const newContent = e.target.value;
-    if (!block.id) {
-      console.error("Block id is undefined:", block);
-      return;
-    }
-    onUpdate(block.id, { content: newContent });
-    try {
-      await updateBlock(block.id, { content: newContent });
-      socket.emit('blockUpdate', { pageId: block.pageId, blockId: block.id, content: newContent });
-    } catch (error) {
-      console.error("Failed to update block:", error);
-    }
-  };
-
-  return (
-    <div className="relative">
-      <div className="absolute -left-10 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          className="p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-          onClick={onDelete}
-        >
-          <Trash2 size={16} />
-        </button>
-      </div>
-      <div className="border-l-4 border-gray-300 dark:border-gray-600 pl-4">
-        <textarea
-          data-block-id={block.id}
-          className="w-full p-2 border-0 focus:outline-none focus:ring-0 resize-none bg-transparent text-gray-900 dark:text-gray-100 italic"
-          value={block.content || ''}
-          onChange={(e) => {
-            handleUpdate(e);
-            onInputChange(e, block.id);
-          }}
-          onFocus={onFocus}
-          onBlur={onBlur}
-          placeholder="Quote"
-          rows={block.content ? block.content.split('\n').length : 1}
-          style={{ minHeight: '1.5rem' }}
-        />
-      </div>
-    </div>
-  );
-});
-
-const CodeBlock = React.memo(({ block, onFocus, onBlur, onDelete, onUpdate, onInputChange, socket }) => {
-  const handleUpdate = async (e) => {
-    const newContent = e.target.value;
-    if (!block.id) {
-      console.error("Block id is undefined:", block);
-      return;
-    }
-    onUpdate(block.id, { content: newContent });
-    try {
-      await updateBlock(block.id, { content: newContent });
-      socket.emit('blockUpdate', { pageId: block.pageId, blockId: block.id, content: newContent });
-    } catch (error) {
-      console.error("Failed to update block:", error);
-    }
-  };
-
-  return (
-    <div className="relative">
-      <div className="absolute -left-10 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          className="p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-          onClick={onDelete}
-        >
-          <Trash2 size={16} />
-        </button>
-      </div>
-      <textarea
-        data-block-id={block.id}
-        className="w-full p-2 border-0 focus:outline-none focus:ring-0 resize-none bg-gray-100 dark:bg-gray-800 font-mono text-gray-900 dark:text-gray-100 rounded-md"
-        value={block.content || ''}
-        onChange={(e) => {
-          handleUpdate(e);
-          onInputChange(e, block.id);
-        }}
-        onFocus={onFocus}
-        onBlur={onBlur}
-        placeholder="Code"
-        rows={block.content ? block.content.split('\n').length : 1}
-        style={{ minHeight: '1.5rem' }}
-      />
-    </div>
-  );
-});
-
-const ImageBlock = React.memo(({ block, onDelete, onUpdate, socket }) => {
-  const handleUpdate = async (e) => {
-    const newContent = e.target.value;
-    if (!block.id) {
-      console.error("Block id is undefined:", block);
-      return;
-    }
-    onUpdate(block.id, { content: newContent });
-    try {
-      await updateBlock(block.id, { content: newContent });
-      socket.emit('blockUpdate', { pageId: block.pageId, blockId: block.id, content: newContent });
-    } catch (error) {
-      console.error("Failed to update block:", error);
-    }
-  };
-
-  return (
-    <div className="relative">
-      <div className="absolute -left-10 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          className="p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-          onClick={onDelete}
-        >
-          <Trash2 size={16} />
-        </button>
-      </div>
-      {block.content ? (
-        <img src={block.content} alt="Block image" className="w-full h-auto rounded-md" />
-      ) : (
-        <input
-          type="text"
-          className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          placeholder="Enter image URL"
-          value={block.content || ''}
-          onChange={handleUpdate}
-        />
-      )}
-    </div>
-  );
-});
-
-const DividerBlock = React.memo(({ block, onDelete }) => {
-  return (
-    <div className="relative py-2">
-      <div className="absolute -left-10 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          className="p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800"
-          onClick={onDelete}
-        >
-          <Trash2 size={16} />
-        </button>
-      </div>
-      <hr className="border-gray-200 dark:border-gray-700" />
-    </div>
-  );
-});
-
-const PageContent = ({ page, blocks, setBlocks, socket }) => {
+const PageContent = ({ page, blocks, setBlocks, socket, setNotification }) => {
   const [focusedBlockId, setFocusedBlockId] = useState(null);
   const [showTagsInput, setShowTagsInput] = useState(false);
   const [pageTags, setPageTags] = useState([]);
@@ -341,140 +14,105 @@ const PageContent = ({ page, blocks, setBlocks, socket }) => {
   const [showCommandMenu, setShowCommandMenu] = useState(false);
   const [commandFilter, setCommandFilter] = useState('');
   const commandMenuRef = useRef(null);
+  const [quillRefs, setQuillRefs] = useState({});
 
-  const blockTypes = [
-    { type: 'text', label: 'Text', description: 'Just start writing with plain text' },
-    { type: 'heading', label: 'Heading', description: 'Big section heading' },
-    { type: 'bullet', label: 'Bullet List', description: 'Create a simple bulleted list' },
-    { type: 'numbered', label: 'Numbered List', description: 'Create an ordered list' },
-    { type: 'quote', label: 'Quote', description: 'Highlight a quote' },
-    { type: 'code', label: 'Code', description: 'Add a code snippet' },
-    { type: 'image', label: 'Image', description: 'Embed an image by URL' },
-    { type: 'divider', label: 'Divider', description: 'Separate sections with a line' },
-  ];
+  const blockTypes = useMemo(
+    () => [
+      { type: 'text', label: 'Text', description: 'Just start writing with plain text' },
+      { type: 'heading', label: 'Heading', description: 'Big section heading' },
+      { type: 'bullet', label: 'Bullet List', description: 'Create a simple bulleted list' },
+      { type: 'numbered', label: 'Numbered List', description: 'Create an ordered list' },
+      { type: 'quote', label: 'Quote', description: 'Highlight a quote' },
+      { type: 'code', label: 'Code', description: 'Add a code snippet' },
+      { type: 'image', label: 'Image', description: 'Embed an image by URL' },
+      { type: 'divider', label: 'Divider', description: 'Separate sections with a line' },
+    ],
+    []
+  );
 
-  const renderBlock = (block) => {
-    if (!block || !block.id) {
-      console.error("Invalid block:", block);
-      return null;
-    }
-    console.log('Rendering block:', block);
-    const blockProps = {
-      block: { ...block, pageId: page.id },
-      onFocus: () => setFocusedBlockId(block.id),
-      onBlur: () => setFocusedBlockId(null),
-      onDelete: async () => {
-        try {
-          await deleteBlock(block.id);
-          setBlocks((prev) => prev.filter((b) => b.id !== block.id));
-          socket.emit('deleteBlock', { pageId: page.id, blockId: block.id });
-        } catch (error) {
-          console.error("Failed to delete block:", error);
-        }
-      },
-      onUpdate: (id, updates) => {
-        setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, ...updates } : b)));
-      },
-      onInputChange: handleInputChange,
-      socket,
-    };
+  const setQuillRef = useCallback((blockId, ref) => {
+    setQuillRefs((prev) => ({ ...prev, [blockId]: ref }));
+  }, []);
 
-    switch (block.type) {
-      case 'text':
-      case 'paragraph':
-        return <TextBlock key={block.id} {...blockProps} />;
-      case 'heading':
-      case 'heading_1':
-        return <HeadingBlock key={block.id} {...blockProps} />;
-      case 'bullet':
-      case 'bulleted_list':
-        return <BulletListBlock key={block.id} {...blockProps} />;
-      case 'numbered':
-      case 'numbered_list':
-        return <NumberedListBlock key={block.id} {...blockProps} />;
-      case 'quote':
-        return <QuoteBlock key={block.id} {...blockProps} />;
-      case 'code':
-        return <CodeBlock key={block.id} {...blockProps} />;
-      case 'image':
-        return <ImageBlock key={block.id} {...blockProps} />;
-      case 'divider':
-        return <DividerBlock key={block.id} {...blockProps} />;
-      default:
-        console.warn(`Unknown block type: ${block.type}, rendering as text`);
-        return <TextBlock key={block.id} {...blockProps} />;
-    }
-  };
+  const handleInputChange = useCallback(
+    (e, blockId) => {
+      const content = e.target.value;
+      console.log('Input changed:', { content, blockId });
 
-  const handleInputChange = (e, blockId) => {
-    const value = e.target.value;
-    console.log('Input changed:', { value, blockId });
-    if (value.startsWith('/') && !commandFilter) {
-      setShowCommandMenu(true);
-      setCommandFilter(value.slice(1));
-      console.log('Showing command menu with filter:', value.slice(1));
-    } else if (showCommandMenu) {
-      setCommandFilter(value.slice(1));
-      console.log('Updating command filter:', value.slice(1));
-    }
-  };
+      const div = document.createElement('div');
+      div.innerHTML = content;
+      const text = div.textContent || div.innerText || '';
 
-  const handleChangeBlockType = async (newType) => {
-    console.log('HandleChangeBlockType triggered with type:', newType);
-    if (!focusedBlockId) {
-      console.error("No block focused to change type");
-      return;
-    }
-
-    try {
-      const updatedBlock = await updateBlock(focusedBlockId, { type: newType });
-      setBlocks((prev) =>
-        prev.map((b) =>
-          b.id === focusedBlockId ? { ...b, type: newType } : b
-        )
-      );
-      socket.emit('blockUpdate', { pageId: page.id, blockId: focusedBlockId, type: newType });
-      setShowCommandMenu(false);
-      setCommandFilter('');
-
-      const textarea = document.querySelector(`textarea[data-block-id="${focusedBlockId}"]`);
-      if (textarea) {
-        const currentContent = textarea.value;
-        if (currentContent.startsWith('/')) {
-          const newContent = currentContent.slice(1).trim();
-          setBlocks((prev) =>
-            prev.map((b) =>
-              b.id === focusedBlockId ? { ...b, content: newContent } : b
-            )
-          );
-          await updateBlock(focusedBlockId, { content: newContent });
-          socket.emit('blockUpdate', { pageId: page.id, blockId: focusedBlockId, content: newContent });
-        }
-        textarea.focus();
-        console.log('Focused block after type change:', focusedBlockId);
+      if (text.trim().startsWith('/') && !commandFilter) {
+        setShowCommandMenu(true);
+        setCommandFilter(text.trim().slice(1));
+      } else if (showCommandMenu) {
+        setCommandFilter(text.trim().slice(1));
       } else {
-        console.error('Textarea not found for block:', focusedBlockId);
+        setShowCommandMenu(false);
+        setCommandFilter('');
       }
-    } catch (error) {
-      console.error("Failed to change block type:", error);
-      alert("Failed to change block type: " + error.message);
-    }
+    },
+    [commandFilter, showCommandMenu]
+  );
+
+  const handleChangeBlockType = useCallback(
+    async (newType) => {
+      if (!focusedBlockId) return;
+
+      try {
+        const block = blocks.find((b) => b.id === focusedBlockId);
+        if (!block) return;
+
+        const plainText = stripTags(block.content || '');
+        const updatedBlock = await updateBlock(focusedBlockId, { type: newType, content: plainText });
+        setBlocks((prev) =>
+          prev.map((b) => (b.id === focusedBlockId ? { ...b, type: newType, content: plainText } : b))
+        );
+        socket.emit('blockUpdate', { pageId: page.id, blockId: focusedBlockId, type: newType, content: plainText });
+        setShowCommandMenu(false);
+        setCommandFilter('');
+
+        setTimeout(() => {
+          const textarea = document.querySelector(`textarea[data-block-id="${focusedBlockId}"]`);
+          if (textarea) textarea.focus();
+        }, 100);
+      } catch (error) {
+        console.error('Failed to change block type:', error);
+        setNotification({ type: 'error', message: 'Failed to change block type: ' + error.message });
+      }
+    },
+    [focusedBlockId, blocks, page.id, socket, setNotification]
+  );
+
+  const stripTags = (html) => {
+    const div = document.createElement('div');
+    div.innerHTML = html || '';
+    return div.textContent || div.innerText || '';
   };
 
-  const handleAddBlock = async (type = 'text') => {
-    console.log('HandleAddBlock triggered with type:', type);
-    const lastBlockIndex = blocks.length > 0 ? blocks.length - 1 : -1;
+  const handleAddBlock = useCallback(async (type = 'text', position = blocks.length) => {
+    console.log('HandleAddBlock triggered with type:', type, 'at position:', position);
     try {
       const newBlock = await createBlock({
         pageId: page.id,
         type,
         content: '',
-        position: lastBlockIndex + 1,
+        position,
+        style: {
+          fontFamily: 'Arial',
+          fontSize: type === 'heading' ? '24px' : '16px',
+          color: '#000000',
+          bold: type === 'heading' ? true : false,
+          italic: false,
+          underline: false,
+          align: 'left',
+        },
       });
       const blockWithId = { ...newBlock, id: newBlock._id };
       console.log('New block created:', blockWithId);
       setBlocks((prev) => {
-        const newBlocks = [...prev, blockWithId];
+        const newBlocks = [...prev.slice(0, position), blockWithId, ...prev.slice(position)];
         console.log('Updated blocks:', newBlocks);
         return newBlocks;
       });
@@ -482,22 +120,106 @@ const PageContent = ({ page, blocks, setBlocks, socket }) => {
       setShowCommandMenu(false);
       setCommandFilter('');
       setTimeout(() => {
-        const textarea = document.querySelector(`textarea[data-block-id="${newBlock._id}"]`);
-        if (textarea) {
-          textarea.focus();
+        const editor = document.querySelector(`div[data-block-id="${newBlock._id}"] .ql-editor`);
+        if (editor) {
+          editor.focus();
+          setFocusedBlockId(newBlock._id);
           console.log('Focused new block:', newBlock._id);
         } else {
-          console.error('Textarea not found for block:', newBlock._id);
+          console.error('Editor not found for block:', newBlock._id);
         }
       }, 100);
     } catch (error) {
       console.error("Failed to add block:", error);
-      alert("Failed to add block: " + error.message);
+      setNotification({ type: 'error', message: "Failed to add block: " + error.message });
     }
-  };
+  }, [blocks, page.id, socket, setNotification]);
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && showCommandMenu) {
+  const handleUpdateStyle = useCallback(async (blockId, styleUpdates) => {
+    if (!blockId) {
+      console.error("No block focused to update style");
+      return;
+    }
+
+    try {
+      const block = blocks.find((b) => b.id === blockId);
+      if (!block) {
+        console.error("Block not found for style update:", blockId);
+        return;
+      }
+
+      const currentStyle = block.style || {
+        fontFamily: 'Arial',
+        fontSize: '16px',
+        color: '#000000',
+        bold: false,
+        italic: false,
+        underline: false,
+        align: 'left',
+      };
+
+      const newStyle = { ...currentStyle, ...styleUpdates };
+      console.log('Updating style for block:', blockId, 'New style:', newStyle); // Thêm log để kiểm tra
+
+      await updateBlock(blockId, { style: newStyle });
+      setBlocks((prev) =>
+        prev.map((b) =>
+          b.id === blockId ? { ...b, style: newStyle } : b
+        )
+      );
+      socket.emit('blockUpdate', { pageId: page.id, blockId, style: newStyle });
+    } catch (error) {
+      console.error("Failed to update block style:", error);
+      setNotification({ type: 'error', message: "Failed to update block style: " + error.message });
+    }
+  }, [blocks, page.id, socket, setNotification]);
+
+  const handleDeleteBlock = useCallback(async (blockId, blockIndex) => {
+    try {
+      await deleteBlock(blockId);
+      setBlocks((prev) => prev.filter((b) => b.id !== blockId));
+      socket.emit('deleteBlock', { pageId: page.id, blockId });
+      if (blockIndex > 0) {
+        const prevBlockId = blocks[blockIndex - 1].id;
+        setTimeout(() => {
+          const textarea = document.querySelector(`textarea[data-block-id="${prevBlockId}"]`);
+          if (textarea) {
+            textarea.focus();
+            setFocusedBlockId(prevBlockId);
+          }
+        }, 100);
+      }
+    } catch (error) {
+      console.error("Failed to delete block:", error);
+      setNotification({ type: 'error', message: "Failed to delete block: " + error.message });
+    }
+  }, [blocks, page.id, socket, setNotification]);
+
+  const handleKeyDown = useCallback((e, blockId) => {
+    const blockIndex = blocks.findIndex((b) => b.id === blockId);
+    const block = blocks[blockIndex];
+
+    if (e.key === 'Enter' && !showCommandMenu) {
+      e.preventDefault();
+      if (e.shiftKey) {
+        return;
+      }
+      const newType = block.type === 'bullet' || block.type === 'numbered' ? block.type : 'text';
+      handleAddBlock(newType, blockIndex + 1);
+    } else if (e.key === 'Backspace' && !block.content && blockIndex > 0) {
+      e.preventDefault();
+      handleDeleteBlock(blockId, blockIndex);
+    } else if (e.key === 'Tab' && (block.type === 'bullet' || block.type === 'numbered')) {
+      e.preventDefault();
+      const indentLevel = block.style?.indentLevel || 0;
+      if (e.shiftKey) {
+        if (indentLevel > 0) {
+          handleUpdateStyle(blockId, { indentLevel: indentLevel - 1 });
+        }
+      } else {
+        handleUpdateStyle(blockId, { indentLevel: indentLevel + 1 });
+      }
+    } else if (e.key === 'Enter' && showCommandMenu) {
       const filteredCommands = blockTypes.filter((cmd) =>
         cmd.label.toLowerCase().includes(commandFilter.toLowerCase())
       );
@@ -510,7 +232,7 @@ const PageContent = ({ page, blocks, setBlocks, socket }) => {
       setShowCommandMenu(false);
       setCommandFilter('');
     }
-  };
+  }, [blocks, showCommandMenu, commandFilter, blockTypes, handleAddBlock, handleChangeBlockType, handleUpdateStyle, handleDeleteBlock]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -523,17 +245,17 @@ const PageContent = ({ page, blocks, setBlocks, socket }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleAddTag = (e) => {
+  const handleAddTag = useCallback((e) => {
     if (e.key === 'Enter' && newTag.trim() && !pageTags.includes(newTag.trim())) {
       setPageTags((prev) => [...prev, newTag.trim()]);
       setNewTag('');
       e.preventDefault();
     }
-  };
+  }, [newTag, pageTags]);
 
-  const handleRemoveTag = (tag) => {
+  const handleRemoveTag = useCallback((tag) => {
     setPageTags((prev) => prev.filter((t) => t !== tag));
-  };
+  }, []);
 
   const currentDate = format(new Date(), 'MMMM d, yyyy');
 
@@ -604,11 +326,32 @@ const PageContent = ({ page, blocks, setBlocks, socket }) => {
       <div className="space-y-4 relative">
         {blocks.map((block) => (
           <div key={block.id} className="group relative">
-            {renderBlock(block)}
+            <BlockRenderer
+              block={{ ...block, pageId: page.id }}
+              onFocus={() => setFocusedBlockId(block.id)}
+              onBlur={() => setFocusedBlockId(null)}
+              onDelete={async () => {
+                try {
+                  await deleteBlock(block.id);
+                  setBlocks((prev) => prev.filter((b) => b.id !== block.id));
+                  socket.emit('deleteBlock', { pageId: page.id, blockId: block.id });
+                } catch (error) {
+                  console.error('Failed to delete block:', error);
+                  setNotification({ type: 'error', message: 'Failed to delete block: ' + error.message });
+                }
+              }}
+              onUpdate={(id, updates) => {
+                setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, ...updates } : b)));
+              }}
+              onInputChange={handleInputChange}
+              onKeyDown={(e) => handleKeyDown(e, block.id)}
+              socket={socket}
+              setQuillRef={setQuillRef} 
+            />
             {focusedBlockId === block.id && showCommandMenu && (
               <div
                 ref={commandMenuRef}
-                className="absolute z-50 mt-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg pointer-events-auto"
+                className="absolute z-50 mt-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg pointer-events-auto max-h-[300px] overflow-y-auto"
                 style={{ zIndex: 50 }}
               >
                 {blockTypes
@@ -644,6 +387,12 @@ const PageContent = ({ page, blocks, setBlocks, socket }) => {
           <span className="ml-2 text-gray-500 dark:text-gray-400">Add a block</span>
         </div>
       </div>
+      <BottomToolbar
+        focusedBlockId={focusedBlockId}
+        blocks={blocks}
+        handleUpdateStyle={handleUpdateStyle}
+        quillRef={quillRefs[focusedBlockId]}
+      />
     </motion.div>
   );
 };

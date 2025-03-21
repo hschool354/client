@@ -12,7 +12,6 @@ import PageHistory from './PageHistory';
 import PageSettings from './PageSettings';
 import Notification from '../shared/Notification';
 import LoadingSpinner from '../shared/LoadingSpinner';
-import BottomToolbar from './BottomToolbar';
 
 // Services
 import { getPageContent, savePage, restorePageVersion } from '../../services/pageContentService';
@@ -20,7 +19,7 @@ import { getPageContent, savePage, restorePageVersion } from '../../services/pag
 // Animations
 import { fadeVariants, containerVariants } from '../../utils/animations';
 
-const socket = io('http://localhost:5000'); // Kết nối đến server
+const socket = io('http://localhost:5000');
 
 const PageComponent = ({ workspaceId, initialPage = null }) => {
   const queryClient = useQueryClient();
@@ -55,10 +54,9 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
 
   useEffect(() => {
     if (initialPage?.id) {
-      socket.emit('joinPage', initialPage.id); // Tham gia room của page
-  
-      socket.on('blockUpdate', ({ blockId, content, type }) => {
-        console.log(`Received blockUpdate: blockId=${blockId}, content=${content}, type=${type}`);
+      socket.emit('joinPage', initialPage.id);
+      socket.on('blockUpdate', ({ blockId, content, type, style }) => {
+        console.log(`Received blockUpdate: blockId=${blockId}, content=${content}, type=${type}, style=${style}`);
         setBlocks((prev) =>
           prev.map((b) =>
             b.id === blockId
@@ -66,6 +64,7 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
                   ...b,
                   content: content !== undefined ? content : b.content,
                   type: type !== undefined ? type : b.type,
+                  style: style !== undefined ? style : b.style,
                 }
               : b
           )
@@ -79,7 +78,20 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
             console.log('Block already exists, skipping:', block.id);
             return prev;
           }
-          return [...prev, block];
+          // Đảm bảo block mới có style
+          const blockWithStyle = {
+            ...block,
+            style: block.style || {
+              fontFamily: 'Arial',
+              fontSize: '16px',
+              color: '#000000',
+              bold: false,
+              italic: false,
+              underline: false,
+              align: 'left',
+            },
+          };
+          return [...prev, blockWithStyle];
         });
       });
 
@@ -88,7 +100,7 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
         setBlocks((prev) => prev.filter((b) => b.id !== blockId));
       });
     }
-  
+
     return () => {
       socket.off('blockUpdate');
       socket.off('blockAdded');
@@ -123,13 +135,32 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
               content: block.content || '',
               type: block.type || 'text',
               position: block.position ?? index,
+              style: block.style || {
+                fontFamily: 'Arial',
+                fontSize: '16px',
+                color: '#000000',
+                bold: false,
+                italic: false,
+                underline: false,
+                align: 'left',
+              },
+            };
+            // Đảm bảo style không bị undefined hoặc thiếu thuộc tính
+            blockData.style = {
+              fontFamily: blockData.style.fontFamily || 'Arial',
+              fontSize: blockData.style.fontSize || '16px',
+              color: blockData.style.color || '#000000',
+              bold: blockData.style.bold ?? false,
+              italic: blockData.style.italic ?? false,
+              underline: blockData.style.underline ?? false,
+              align: blockData.style.align || 'left',
             };
             console.log('Mapped block:', blockData);
             return blockData;
           })
         : [];
       setBlocks(blocksData);
-  
+
       if (data.page) {
         setPage((prev) => ({
           ...prev,
@@ -191,6 +222,7 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
             blocks={blocks}
             setBlocks={setBlocks}
             socket={socket}
+            setNotification={setNotification}
           />
         );
       case 'history':
@@ -263,7 +295,6 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
         </motion.div>
         <div className="mt-6">{renderTabContent()}</div>
       </main>
-      <BottomToolbar page={page} blocks={blocks} setBlocks={setBlocks} />
     </div>
   );
 };

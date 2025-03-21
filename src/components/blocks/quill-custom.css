@@ -1,0 +1,14 @@
+/* src/quill-custom.css */
+.ql-container,
+.ql-editor {
+  border: none !important;
+  outline: none !important;
+  padding: 0.5rem !important; /* Giữ padding đồng bộ với style inline */
+  background: transparent !important;
+}
+
+.ql-editor:focus {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
