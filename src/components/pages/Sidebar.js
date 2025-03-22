@@ -18,6 +18,7 @@ import {
   Search,
   Copy,
   Star,
+  LogOut,
 } from "lucide-react";
 
 import workspaceService from "../../services/workspaceService";
@@ -32,6 +33,7 @@ import {
 } from "../../services/pageService";
 import favoritesService from "../../services/favoritesService";
 import userProfileService from "../../services/userProfileService";
+import authService from "../../services/authService";
 
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -394,6 +396,25 @@ const Sidebar = ({
     setDarkMode(!darkMode);
   };
 
+  const handleLogout = async () => {
+    try {
+      await authService.logout();
+      toast({
+        title: "Success",
+        description: "You have been logged out.",
+        variant: "success",
+      });
+      navigate("/login"); 
+    } catch (error) {
+      console.error("Error during logout:", error.message);
+      toast({
+        title: "Error",
+        description: "Failed to logout. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getRandomAvatarColor = () => {
     const randomIndex = Math.floor(Math.random() * avatarColors.length);
     return avatarColors[randomIndex];
@@ -466,6 +487,12 @@ const Sidebar = ({
               isActive={false}
               onClick={toggleDarkMode}
               tooltip={darkMode ? "Light Mode" : "Dark Mode"}
+            />
+            <NavIcon
+              icon={<LogOut size={20} />}
+              isActive={false}
+              onClick={handleLogout}
+              tooltip="Logout"
             />
           </TooltipProvider>
         </div>
