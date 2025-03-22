@@ -31,6 +31,7 @@ import {
   duplicatePage,
 } from "../../services/pageService";
 import favoritesService from "../../services/favoritesService";
+import userProfileService from "../../services/userProfileService";
 
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -53,6 +54,14 @@ import { Separator } from "../ui/separator";
 import { ScrollArea } from "../ui/scroll-area";
 import { useToast } from "../ui/use-toast";
 import { useNavigate } from "react-router-dom";
+
+const avatarColors = [
+  "bg-gradient-to-br from-red-400 to-pink-500",
+  "bg-gradient-to-br from-blue-400 to-cyan-500",
+  "bg-gradient-to-br from-green-400 to-teal-500",
+  "bg-gradient-to-br from-purple-400 to-indigo-500",
+  "bg-gradient-to-br from-yellow-400 to-orange-500",
+];
 
 const Sidebar = ({
   user,
@@ -81,11 +90,13 @@ const Sidebar = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [workspaces, setWorkspaces] = useState(initialWorkspaces || []);
   const [newWorkspaceDescription, setNewWorkspaceDescription] = useState("");
+  const [userProfile, setUserProfile] = useState(null);
   const MotionButton = motion(Button);
 
   useEffect(() => {
     fetchWorkspaces();
     fetchFavorites();
+    fetchUserProfile();
   }, []);
 
   useEffect(() => {
@@ -97,6 +108,16 @@ const Sidebar = ({
       setActivePages([]);
     }
   }, [selectedWorkspace]);
+
+  const fetchUserProfile = async () => {
+    try {
+      const profile = await userProfileService.getUserProfile();
+      setUserProfile(profile);
+    } catch (error) {
+      console.error("Error fetching user profile:", error.message);
+      setUserProfile(null);
+    }
+  };
 
   const fetchWorkspaces = async () => {
     try {
@@ -373,6 +394,11 @@ const Sidebar = ({
     setDarkMode(!darkMode);
   };
 
+  const getRandomAvatarColor = () => {
+    const randomIndex = Math.floor(Math.random() * avatarColors.length);
+    return avatarColors[randomIndex];
+  };
+
   const getInitials = (name) => {
     if (!name) return "U";
     return name
@@ -382,7 +408,7 @@ const Sidebar = ({
       .toUpperCase()
       .slice(0, 2);
   };
-
+  
   return (
     <div className={`flex h-full ${darkMode ? "dark" : ""}`}>
       {/* Main Sidebar */}
@@ -444,7 +470,6 @@ const Sidebar = ({
           </TooltipProvider>
         </div>
 
-        {/* User Avatar (Bottom) */}
         <div className="mt-auto p-4 border-t border-sky-400/30 relative z-10">
           <motion.button
             className="flex items-center justify-center"
@@ -453,12 +478,24 @@ const Sidebar = ({
             whileTap={{ scale: 0.95 }}
           >
             <motion.div
-              className="w-10 h-10 rounded-full bg-gradient-to-br from-white to-blue-200 flex items-center justify-center shadow-lg shadow-blue-500/30 ring-2 ring-white/30"
+              className={`w-10 h-10 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/30 ring-2 ring-white/30 ${
+                userProfile?.avatar_base64 ? "" : getRandomAvatarColor()
+              }`}
               whileHover={{ boxShadow: "0 0 20px rgba(59, 130, 246, 0.6)" }}
             >
-              <span className="text-sm font-bold text-blue-600">
-                {user ? getInitials(user.full_name) : "U"}
-              </span>
+              {userProfile?.avatar_base64 ? (
+                <img
+                  src={`data:image/jpeg;base64,${userProfile.avatar_base64}`}
+                  alt="User Avatar"
+                  className="w-full h-full rounded-full object-cover"
+                />
+              ) : (
+                <span className="text-sm font-bold text-white">
+                  {userProfile?.full_name
+                    ? getInitials(userProfile.full_name)
+                    : "U"}
+                </span>
+              )}
             </motion.div>
           </motion.button>
         </div>

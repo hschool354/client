@@ -55,10 +55,11 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
   useEffect(() => {
     if (initialPage?.id) {
       socket.emit('joinPage', initialPage.id);
+
       socket.on('blockUpdate', ({ blockId, content, type, style }) => {
-        console.log(`Received blockUpdate: blockId=${blockId}, content=${content}, type=${type}, style=${style}`);
-        setBlocks((prev) =>
-          prev.map((b) =>
+        console.log(`Client B received blockUpdate: blockId=${blockId}, content=${content}, type=${type}, style=${style}`);
+        setBlocks((prev) => {
+          const newBlocks = prev.map((b) =>
             b.id === blockId
               ? {
                   ...b,
@@ -67,31 +68,17 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
                   style: style !== undefined ? style : b.style,
                 }
               : b
-          )
-        );
+          );
+          console.log('Client B updated blocks after blockUpdate:', newBlocks.filter(b => b.id === blockId));
+          return [...newBlocks];
+        });
       });
 
       socket.on('blockAdded', (block) => {
         console.log('Received blockAdded:', block);
         setBlocks((prev) => {
-          if (prev.some((b) => b.id === block.id)) {
-            console.log('Block already exists, skipping:', block.id);
-            return prev;
-          }
-          // Đảm bảo block mới có style
-          const blockWithStyle = {
-            ...block,
-            style: block.style || {
-              fontFamily: 'Arial',
-              fontSize: '16px',
-              color: '#000000',
-              bold: false,
-              italic: false,
-              underline: false,
-              align: 'left',
-            },
-          };
-          return [...prev, blockWithStyle];
+          if (prev.some((b) => b.id === block.id)) return prev;
+          return [...prev, { ...block, style: block.style || { /* default style */ } }];
         });
       });
 
@@ -99,30 +86,14 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
         console.log(`Received blockDeleted: blockId=${blockId}`);
         setBlocks((prev) => prev.filter((b) => b.id !== blockId));
       });
-    }
 
-    return () => {
-      socket.off('blockUpdate');
-      socket.off('blockAdded');
-      socket.off('blockDeleted');
-    };
+      return () => {
+        socket.off('blockUpdate');
+        socket.off('blockAdded');
+        socket.off('blockDeleted');
+      };
+    }
   }, [initialPage?.id]);
-
-  useEffect(() => {
-    if (initialPage) {
-      setPage({
-        id: initialPage.id,
-        title: initialPage.title || 'Untitled',
-        icon: initialPage.icon || '📄',
-        coverUrl: initialPage.coverUrl || '',
-        isPublic: initialPage.isPublic || false,
-      });
-      setBlocks([]);
-      setIsStarred(false);
-      setPageTags([]);
-      setSelectedTab('content');
-    }
-  }, [initialPage]);
 
   useEffect(() => {
     if (data) {
@@ -145,7 +116,6 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
                 align: 'left',
               },
             };
-            // Đảm bảo style không bị undefined hoặc thiếu thuộc tính
             blockData.style = {
               fontFamily: blockData.style.fontFamily || 'Arial',
               fontSize: blockData.style.fontSize || '16px',

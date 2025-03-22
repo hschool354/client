@@ -8,6 +8,7 @@ import Sidebar from './Sidebar';
 import PageComponent from './PageComponent';
 import CollabPage from './CollabPage';
 import PlanetPage from './PlanetPage';
+import SettingPage from './Setting';
 
 const HomeContent = () => {
   const navigate = useNavigate();
@@ -216,6 +217,8 @@ const HomeContent = () => {
         return <CollabPage user={user} workspace={selectedWorkspace} />;
         case 'planet':
         return <PlanetPage user={user} />;
+        case 'settings':
+        return <SettingPage user={user} />;
       case 'computer':
       default:
         return selectedPage ? (

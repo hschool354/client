@@ -21,17 +21,17 @@ const BlockRenderer = ({ block, onKeyDown, setQuillRef, ...props }) => {
       return <TextBlock key={block.id} block={block} onKeyDown={onKeyDown} setQuillRef={setQuillRef} {...props} />;
     case 'heading':
     case 'heading_1':
-      return <HeadingBlock key={block.id} block={block} onKeyDown={onKeyDown} {...props} />;
+      return <HeadingBlock key={block.id} block={block} onKeyDown={onKeyDown} setQuillRef={setQuillRef} {...props} />;
     case 'bullet':
     case 'bulleted_list':
-      return <BulletListBlock key={block.id} block={block} onKeyDown={onKeyDown} {...props} />;
+      return <BulletListBlock key={block.id} block={block} onKeyDown={onKeyDown} setQuillRef={setQuillRef} {...props} />;
     case 'numbered':
     case 'numbered_list':
-      return <NumberedListBlock key={block.id} block={block} onKeyDown={onKeyDown} {...props} />;
+      return <NumberedListBlock key={block.id} block={block} onKeyDown={onKeyDown} setQuillRef={setQuillRef} {...props} />;
     case 'quote':
-      return <QuoteBlock key={block.id} block={block} onKeyDown={onKeyDown} {...props} />;
+      return <QuoteBlock key={block.id} block={block} onKeyDown={onKeyDown} setQuillRef={setQuillRef} {...props} />;
     case 'code':
-      return <CodeBlock key={block.id} block={block} onKeyDown={onKeyDown} {...props} />;
+      return <CodeBlock key={block.id} block={block} onKeyDown={onKeyDown} setQuillRef={setQuillRef} {...props} />;
     case 'image':
       return <ImageBlock key={block.id} block={block} {...props} />;
     case 'divider':

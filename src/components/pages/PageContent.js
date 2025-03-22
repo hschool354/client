@@ -56,6 +56,24 @@ const PageContent = ({ page, blocks, setBlocks, socket, setNotification }) => {
     [commandFilter, showCommandMenu]
   );
 
+  const emitBlockUpdate = useCallback((blockId, updates) => {
+    const block = blocks.find((b) => b.id === blockId);
+    if (!block) {
+      console.error('Block not found for emit:', blockId);
+      return;
+    }
+    const payload = {
+      pageId: page.id,
+      blockId: block.id,
+      type: block.type,
+      content: block.content,
+      style: block.style,
+      ...updates, // Ghi đè các thuộc tính được cập nhật
+    };
+    socket.emit('blockUpdate', payload);
+    console.log('Client A emitting blockUpdate:', payload);
+  }, [page.id, blocks, socket]);
+
   const handleChangeBlockType = useCallback(
     async (newType) => {
       if (!focusedBlockId) return;
@@ -64,25 +82,48 @@ const PageContent = ({ page, blocks, setBlocks, socket, setNotification }) => {
         const block = blocks.find((b) => b.id === focusedBlockId);
         if (!block) return;
 
-        const plainText = stripTags(block.content || '');
-        const updatedBlock = await updateBlock(focusedBlockId, { type: newType, content: plainText });
+        console.log('handleChangeBlockType called with newType:', newType);
+        const plainText = stripTags(block.content || '').replace(/^\/.*/, '');
+        await updateBlock(focusedBlockId, { type: newType, content: plainText });
         setBlocks((prev) =>
           prev.map((b) => (b.id === focusedBlockId ? { ...b, type: newType, content: plainText } : b))
         );
-        socket.emit('blockUpdate', { pageId: page.id, blockId: focusedBlockId, type: newType, content: plainText });
+        emitBlockUpdate(focusedBlockId, { type: newType, content: plainText });
         setShowCommandMenu(false);
         setCommandFilter('');
 
         setTimeout(() => {
-          const textarea = document.querySelector(`textarea[data-block-id="${focusedBlockId}"]`);
-          if (textarea) textarea.focus();
+          const quillRef = quillRefs[focusedBlockId];
+          if (quillRef && typeof quillRef.getEditor === 'function') {
+            const quill = quillRef.getEditor();
+            quill.setText(plainText);
+            quill.focus();
+          } else {
+            console.warn('Quill editor not found for block:', focusedBlockId);
+          }
         }, 100);
       } catch (error) {
         console.error('Failed to change block type:', error);
         setNotification({ type: 'error', message: 'Failed to change block type: ' + error.message });
       }
     },
-    [focusedBlockId, blocks, page.id, socket, setNotification]
+    [focusedBlockId, blocks, socket, setNotification, quillRefs, emitBlockUpdate]
+  );
+
+  const handleUpdateBlock = useCallback(
+    async (blockId, updates) => {
+      try {
+        await updateBlock(blockId, updates);
+        setBlocks((prev) =>
+          prev.map((b) => (b.id === blockId ? { ...b, ...updates } : b))
+        );
+        emitBlockUpdate(blockId, updates);
+      } catch (error) {
+        console.error('Failed to update block:', error);
+        setNotification({ type: 'error', message: 'Failed to update block: ' + error.message });
+      }
+    },
+    [blocks, emitBlockUpdate, setNotification]
   );
 
   const stripTags = (html) => {
@@ -159,7 +200,7 @@ const PageContent = ({ page, blocks, setBlocks, socket, setNotification }) => {
       };
 
       const newStyle = { ...currentStyle, ...styleUpdates };
-      console.log('Updating style for block:', blockId, 'New style:', newStyle); // Thêm log để kiểm tra
+      console.log('Updating style for block:', blockId, 'New style:', newStyle);
 
       await updateBlock(blockId, { style: newStyle });
       setBlocks((prev) =>
@@ -340,13 +381,11 @@ const PageContent = ({ page, blocks, setBlocks, socket, setNotification }) => {
                   setNotification({ type: 'error', message: 'Failed to delete block: ' + error.message });
                 }
               }}
-              onUpdate={(id, updates) => {
-                setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, ...updates } : b)));
-              }}
+              onUpdate={handleUpdateBlock}              
               onInputChange={handleInputChange}
               onKeyDown={(e) => handleKeyDown(e, block.id)}
               socket={socket}
-              setQuillRef={setQuillRef} 
+              setQuillRef={setQuillRef}
             />
             {focusedBlockId === block.id && showCommandMenu && (
               <div
