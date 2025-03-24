@@ -19,6 +19,7 @@ import {
   Copy,
   Star,
   LogOut,
+  Crown,
 } from "lucide-react";
 
 import workspaceService from "../../services/workspaceService";
@@ -404,7 +405,7 @@ const Sidebar = ({
         description: "You have been logged out.",
         variant: "success",
       });
-      navigate("/login"); 
+      navigate("/login");
     } catch (error) {
       console.error("Error during logout:", error.message);
       toast({
@@ -429,7 +430,7 @@ const Sidebar = ({
       .toUpperCase()
       .slice(0, 2);
   };
-  
+
   return (
     <div className={`flex h-full ${darkMode ? "dark" : ""}`}>
       {/* Main Sidebar */}
@@ -482,6 +483,44 @@ const Sidebar = ({
               onClick={() => handleTabClick("settings")}
               tooltip="Settings"
             />
+            <motion.div
+              whileHover={{ scale: 1.2, rotate: 10 }}
+              whileTap={{ scale: 0.9 }}
+              animate={
+                activeTab === "premium"
+                  ? {
+                      scale: [1, 1.1, 1],
+                      transition: { repeat: Infinity, duration: 1.5 },
+                    }
+                  : {}
+              }
+              className="relative overflow-hidden rounded-md bg-gradient-to-br from-orange-400 to-orange-600 p-1" // Giảm padding và đổi thành bo góc
+              style={{
+                clipPath:
+                  "polygon(20% 0%, 80% 0%, 100% 20%, 100% 80%, 80% 100%, 20% 100%, 0% 80%, 0% 20%)", // Hình vương miện
+              }}
+            >
+              <NavIcon
+                icon={<Crown size={20} className="text-white" />} // Giảm size icon từ 20 xuống 16
+                isActive={activeTab === "premium"}
+                onClick={() => handleTabClick("premium")}
+                tooltip="Premium"
+                className="relative z-10"
+              />
+              {/* Hiệu ứng ánh sáng lướt qua */}
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+                initial={{ x: "-100%" }}
+                animate={{ x: "100%" }}
+                transition={{
+                  repeat: Infinity,
+                  repeatType: "loop",
+                  duration: 2,
+                  ease: "linear",
+                }}
+                style={{ width: "50%", transform: "skewX(-20deg)" }}
+              />
+            </motion.div>
             <NavIcon
               icon={darkMode ? <Sun size={20} /> : <Moon size={20} />}
               isActive={false}

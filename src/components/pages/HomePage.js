@@ -9,6 +9,7 @@ import PageComponent from './PageComponent';
 import CollabPage from './CollabPage';
 import PlanetPage from './PlanetPage';
 import SettingPage from './Setting';
+import SubscriptionsPage from './Subscriptions';
 
 const HomeContent = () => {
   const navigate = useNavigate();
@@ -219,6 +220,8 @@ const HomeContent = () => {
         return <PlanetPage user={user} />;
         case 'settings':
         return <SettingPage user={user} />;
+        case 'premium':
+        return <SubscriptionsPage user={user} />;
       case 'computer':
       default:
         return selectedPage ? (

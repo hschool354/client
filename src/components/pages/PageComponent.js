@@ -1,8 +1,10 @@
+// src/components/PageComponent.js
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from 'next-themes';
 import io from 'socket.io-client';
+import { MessageCircle } from 'lucide-react';
 
 // Components
 import PageHeader from './PageHeader';
@@ -12,12 +14,10 @@ import PageHistory from './PageHistory';
 import PageSettings from './PageSettings';
 import Notification from '../shared/Notification';
 import LoadingSpinner from '../shared/LoadingSpinner';
+import Chatbot from '../Chatbot'; // Import Chatbot component
 
 // Services
 import { getPageContent, savePage, restorePageVersion } from '../../services/pageContentService';
-
-// Animations
-import { fadeVariants, containerVariants } from '../../utils/animations';
 
 const socket = io('http://localhost:5000');
 
@@ -25,7 +25,6 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
   const queryClient = useQueryClient();
   const { theme } = useTheme();
   const [clientId] = useState(Math.random().toString(36).substring(2));
-
   const [page, setPage] = useState({
     id: initialPage?.id || '',
     title: initialPage?.title || 'Untitled',
@@ -40,6 +39,7 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
   const [isStarred, setIsStarred] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [pageTags, setPageTags] = useState([]);
+  const [showChatbot, setShowChatbot] = useState(false);
 
   const updatePage = (updates) => setPage((prev) => ({ ...prev, ...updates }));
 
@@ -57,7 +57,7 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
       socket.emit('joinPage', initialPage.id);
 
       socket.on('blockUpdate', ({ blockId, content, type, style }) => {
-        console.log(`Client B received blockUpdate: blockId=${blockId}, content=${content}, type=${type}, style=${style}`);
+        console.log(`Client received blockUpdate: blockId=${blockId}, content=${content}, type=${type}, style=${style}`);
         setBlocks((prev) => {
           const newBlocks = prev.map((b) =>
             b.id === blockId
@@ -69,7 +69,6 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
                 }
               : b
           );
-          console.log('Client B updated blocks after blockUpdate:', newBlocks.filter(b => b.id === blockId));
           return [...newBlocks];
         });
       });
@@ -78,7 +77,7 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
         console.log('Received blockAdded:', block);
         setBlocks((prev) => {
           if (prev.some((b) => b.id === block.id)) return prev;
-          return [...prev, { ...block, style: block.style || { /* default style */ } }];
+          return [...prev, { ...block, style: block.style || {} }];
         });
       });
 
@@ -97,37 +96,22 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
 
   useEffect(() => {
     if (data) {
-      console.log('Raw response from getPageContent:', data);
       const blocksData = Array.isArray(data.blocks)
-        ? data.blocks.map((block, index) => {
-            console.log('Processing block:', block);
-            const blockData = {
-              id: block._id || block.id || `temp-${index}`,
-              content: block.content || '',
-              type: block.type || 'text',
-              position: block.position ?? index,
-              style: block.style || {
-                fontFamily: 'Arial',
-                fontSize: '16px',
-                color: '#000000',
-                bold: false,
-                italic: false,
-                underline: false,
-                align: 'left',
-              },
-            };
-            blockData.style = {
-              fontFamily: blockData.style.fontFamily || 'Arial',
-              fontSize: blockData.style.fontSize || '16px',
-              color: blockData.style.color || '#000000',
-              bold: blockData.style.bold ?? false,
-              italic: blockData.style.italic ?? false,
-              underline: blockData.style.underline ?? false,
-              align: blockData.style.align || 'left',
-            };
-            console.log('Mapped block:', blockData);
-            return blockData;
-          })
+        ? data.blocks.map((block, index) => ({
+            id: block._id || block.id || `temp-${index}`,
+            content: block.content || '',
+            type: block.type || 'text',
+            position: block.position ?? index,
+            style: block.style || {
+              fontFamily: 'Arial',
+              fontSize: '16px',
+              color: '#000000',
+              bold: false,
+              italic: false,
+              underline: false,
+              align: 'left',
+            },
+          }))
         : [];
       setBlocks(blocksData);
 
@@ -265,6 +249,20 @@ const PageComponent = ({ workspaceId, initialPage = null }) => {
         </motion.div>
         <div className="mt-6">{renderTabContent()}</div>
       </main>
+      <motion.button
+        className="fixed bottom-4 right-4 bg-indigo-500 text-white p-3 rounded-full shadow-lg"
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={() => setShowChatbot(!showChatbot)}
+      >
+        <MessageCircle size={24} />
+      </motion.button>
+      <Chatbot
+        socket={socket}
+        pageId={page.id}
+        isOpen={showChatbot}
+        onClose={() => setShowChatbot(false)}
+      />
     </div>
   );
 };
